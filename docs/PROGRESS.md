@@ -2,13 +2,20 @@
 
 ## Current Phase
 
-Phase 0 — Environment and Repository Setup
+Phase 1 — Backend Foundation and Deterministic Domain Logic
 
 ## Current Task
 
-Phase 0 completed. Preparing to begin backend development.
+Initial FastAPI backend foundation completed. Deterministic domain logic is next.
 
 ## Completed
+
+### 2026-08-05 — Phase 1
+
+- Created a Python 3.12 virtual environment.
+- Added the minimal FastAPI application foundation.
+- Added a health-check endpoint.
+- Added and verified the initial API test.
 
 ### 2026-08-05
 
@@ -32,15 +39,14 @@ Phase 0 completed. Preparing to begin backend development.
 - GitHub synchronization working.
 - Codex connected and able to inspect the repository.
 - Architecture decisions documented.
-- Ready to begin Phase 1.
+- FastAPI backend foundation is working and tested.
+- Ready to implement deterministic domain logic.
 
 ## Next Steps
 
 Phase 1:
-- Create Python virtual environment.
-- Set up FastAPI backend.
 - Implement deterministic domain logic.
-- Add initial tests.
+- Add tests alongside each domain behavior.
 
 ## Blockers
 
