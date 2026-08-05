@@ -6,7 +6,7 @@ Phase 0 — Environment and Repository Setup
 
 ## Current Task
 
-Setting up repository workflow and Codex instructions.
+Phase 0 completed. Preparing to begin backend development.
 
 ## Completed
 
@@ -20,21 +20,27 @@ Setting up repository workflow and Codex instructions.
 
 - Created project repository.
 - Initialized Git and connected GitHub.
-- Created initial documentation files.
-- Completed first Git commits and push.
-- Practiced basic Git workflow.
+- Created initial documentation structure.
+- Configured Codex workflow.
+- Added repository instructions.
+- Completed Git workflow setup.
+- Refined project architecture documentation.
 
 ## Current Status
 
-- Repository setup completed.
+- Repository foundation completed.
 - GitHub synchronization working.
-- Ready for Codex setup and backend development.
+- Codex connected and able to inspect the repository.
+- Architecture decisions documented.
+- Ready to begin Phase 1.
 
 ## Next Steps
 
-- Configure AGENTS.md.
-- Set up Codex workflow.
-- Begin Phase 1: FastAPI backend foundation.
+Phase 1:
+- Create Python virtual environment.
+- Set up FastAPI backend.
+- Implement deterministic domain logic.
+- Add initial tests.
 
 ## Blockers
 
