@@ -74,3 +74,20 @@ Prefer a smaller working system over many incomplete features.
 Reason:
 
 A complete explainable project has more value than unnecessary complexity.
+
+## Decision 5: Tool-Orchestrated Architecture
+
+Date:
+2026-08-05
+
+Decision:
+
+Use an orchestrator with specialized tools/services instead of independent AI agents.
+
+Reason:
+
+Provides better testing, reliability, and explainability while still demonstrating agentic behaviour.
+
+Future possibility:
+
+A graph-based agent framework may be evaluated if the workflow complexity requires it.

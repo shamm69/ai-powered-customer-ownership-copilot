@@ -33,15 +33,16 @@ The MVP includes:
   - Vehicle information
   - Service history
 
-- Acts as the data source for predictive maintenance and recommendation modules.
+- Acts as the data source for predictive maintenance and recommendation services.
 
 1. Manual and FAQ Assistant
 - Uses Retrieval Augmented Generation (RAG)
 - Provides grounded answers with sources
 
 2. Predictive Maintenance
-- Uses synthetic vehicle and service data
-- Compares rule-based logic with a lightweight ML model
+- Uses synthetic vehicle and service-history data
+- Estimates service due status using rule-based logic and a lightweight ML experiment
+- Evaluates whether the ML approach provides value over the baseline
 
 3. Service Recommendations
 - Provides explainable maintenance suggestions
@@ -73,11 +74,17 @@ FastAPI Backend
 ↓
 Router / Orchestrator
 ↓
-Specialized Modules (RAG, Predictive Maintenance, Recommendation, Escalation)
+Tools and Services
 ↓
-SQLite Data Layer (Customer Records, Vehicle Records, Service History)
+Response Generation
 
-Specialized Modules:
+Data Layer:
+SQLite Database
+- Customer Records
+- Vehicle Records
+- Service History
+
+Tools use the data layer when required:
 
 - RAG Retrieval
 - Predictive Maintenance
