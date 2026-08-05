@@ -6,7 +6,7 @@ Phase 1 — Backend Foundation and Deterministic Domain Logic
 
 ## Current Task
 
-Initial FastAPI backend foundation completed. Deterministic domain logic is next.
+First deterministic maintenance due-status evaluator completed and tested.
 
 ## Completed
 
@@ -16,6 +16,8 @@ Initial FastAPI backend foundation completed. Deterministic domain logic is next
 - Added the minimal FastAPI application foundation.
 - Added a health-check endpoint.
 - Added and verified the initial API test.
+- Added a pure maintenance due-status evaluator using supplied distance and time intervals.
+- Added focused tests for due states, decision reasons, boundaries, and invalid inputs.
 
 ### 2026-08-05
 
@@ -42,13 +44,13 @@ Initial FastAPI backend foundation completed. Deterministic domain logic is next
 - Architecture decisions documented.
 - Project context consistently reflects the router/orchestrator and tools/services architecture.
 - FastAPI backend foundation is working and tested.
-- Ready to implement deterministic domain logic.
+- First deterministic maintenance domain rule is working and tested independently of FastAPI.
 
 ## Next Steps
 
 Phase 1:
-- Implement deterministic domain logic.
-- Add tests alongside each domain behavior.
+- Continue implementing deterministic domain logic in small, tested increments.
+- Keep domain behavior independent of API integration.
 
 ## Blockers
 
