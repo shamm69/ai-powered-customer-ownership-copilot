@@ -35,20 +35,20 @@ The MVP includes:
 
 - Acts as the data source for predictive maintenance and recommendation services.
 
-1. Manual and FAQ Assistant
+1. RAG Retrieval
 - Uses Retrieval Augmented Generation (RAG)
 - Provides grounded answers with sources
 
-2. Predictive Maintenance
+2. Predictive Maintenance Service
 - Uses synthetic vehicle and service-history data
 - Estimates service due status using rule-based logic and a lightweight ML experiment
 - Evaluates whether the ML approach provides value over the baseline
 
-3. Service Recommendations
+3. Recommendation Engine
 - Provides explainable maintenance suggestions
 - Uses deterministic business rules
 
-4. Escalation Handling
+4. Escalation Service
 - Creates mock support tickets for:
   - Safety concerns
   - Customer dissatisfaction
@@ -63,6 +63,8 @@ Tracks:
 - Model usage when available
 
 ## Architecture
+
+The FastAPI backend uses a central router/orchestrator to select and invoke tools and services. These capabilities are not autonomous specialized agents.
 
 High-level flow:
 

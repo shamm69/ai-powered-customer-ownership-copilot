@@ -32,6 +32,7 @@ Initial FastAPI backend foundation completed. Deterministic domain logic is next
 - Added repository instructions.
 - Completed Git workflow setup.
 - Refined project architecture documentation.
+- Aligned architecture wording around a central router/orchestrator invoking tools and services rather than autonomous specialized agents.
 
 ## Current Status
 
@@ -39,6 +40,7 @@ Initial FastAPI backend foundation completed. Deterministic domain logic is next
 - GitHub synchronization working.
 - Codex connected and able to inspect the repository.
 - Architecture decisions documented.
+- Project context consistently reflects the router/orchestrator and tools/services architecture.
 - FastAPI backend foundation is working and tested.
 - Ready to implement deterministic domain logic.
 
