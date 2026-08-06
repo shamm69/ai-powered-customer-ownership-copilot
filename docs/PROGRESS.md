@@ -6,9 +6,15 @@ Phase 1 — Backend Foundation and Deterministic Domain Logic
 
 ## Current Task
 
-First deterministic maintenance due-status evaluator completed and tested.
+Typed FastAPI maintenance evaluation endpoint completed and tested.
 
 ## Completed
+
+### 2026-08-06 — Phase 1
+
+- Exposed the deterministic maintenance evaluator through `POST /maintenance/evaluate`.
+- Added typed request and response validation without coupling domain logic to FastAPI.
+- Added API tests for valid statuses, invalid inputs, and non-finite numeric values.
 
 ### 2026-08-05 — Phase 1
 
@@ -45,6 +51,7 @@ First deterministic maintenance due-status evaluator completed and tested.
 - Project context consistently reflects the router/orchestrator and tools/services architecture.
 - FastAPI backend foundation is working and tested.
 - First deterministic maintenance domain rule is working and tested independently of FastAPI.
+- Maintenance due-status evaluation is available through a typed FastAPI endpoint.
 
 ## Next Steps
 
