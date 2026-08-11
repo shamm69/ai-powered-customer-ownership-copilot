@@ -26,12 +26,12 @@ def _build_synthetic_customers() -> list[Customer]:
                         ServiceRecord(
                             service_date=date(2025, 7, 15),
                             odometer_km=2_000,
-                            service_type="Initial inspection",
+                            service_type="inspection",
                         ),
                         ServiceRecord(
                             service_date=date(2026, 7, 15),
                             odometer_km=12_000,
-                            service_type="Scheduled maintenance",
+                            service_type="scheduled",
                         ),
                     ],
                 ),
@@ -46,12 +46,12 @@ def _build_synthetic_customers() -> list[Customer]:
                         ServiceRecord(
                             service_date=date(2024, 12, 5),
                             odometer_km=10_000,
-                            service_type="Scheduled maintenance",
+                            service_type="scheduled",
                         ),
                         ServiceRecord(
                             service_date=date(2025, 12, 5),
                             odometer_km=21_500,
-                            service_type="Scheduled maintenance",
+                            service_type="scheduled",
                         ),
                     ],
                 ),
@@ -71,12 +71,12 @@ def _build_synthetic_customers() -> list[Customer]:
                         ServiceRecord(
                             service_date=date(2024, 4, 20),
                             odometer_km=20_000,
-                            service_type="Scheduled maintenance",
+                            service_type="scheduled",
                         ),
                         ServiceRecord(
                             service_date=date(2025, 4, 20),
                             odometer_km=40_000,
-                            service_type="Major service",
+                            service_type="scheduled",
                         ),
                     ],
                 )
@@ -96,7 +96,7 @@ def _build_synthetic_customers() -> list[Customer]:
                         ServiceRecord(
                             service_date=date(2026, 5, 10),
                             odometer_km=7_500,
-                            service_type="Routine inspection",
+                            service_type="inspection",
                         )
                     ],
                 )

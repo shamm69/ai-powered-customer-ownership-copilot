@@ -32,6 +32,11 @@ def test_seed_database_populates_expected_related_data() -> None:
         assert all(vehicle.customer in customers for vehicle in vehicles)
         assert all(vehicle.service_records for vehicle in vehicles)
         assert all(record.vehicle in vehicles for record in service_records)
+        assert {record.service_type for record in service_records} == {
+            "inspection",
+            "scheduled",
+        }
+        assert sum(record.service_type == "scheduled" for record in service_records) == 5
 
         vehicles_by_model = {vehicle.model: vehicle for vehicle in vehicles}
         assert (
