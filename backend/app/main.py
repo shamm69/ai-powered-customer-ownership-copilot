@@ -1,15 +1,25 @@
 """Application entry point for the Customer Ownership Copilot API."""
 
+from datetime import date
 from math import isfinite
 
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Path, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.orm import Session
 
+from app.database import get_db
 from app.maintenance import (
+    MaintenanceDueResult,
     MaintenanceStatus,
     evaluate_maintenance_due_status,
+)
+from app.maintenance_service import (
+    MaintenanceServiceError,
+    ScheduledServiceNotFoundError,
+    VehicleNotFoundError,
+    evaluate_vehicle_maintenance,
 )
 
 
@@ -34,6 +44,26 @@ class MaintenanceEvaluationResponse(BaseModel):
     kilometres_remaining: float
     months_remaining: float
     reasons: list[str]
+
+
+def get_evaluation_date() -> date:
+    """Provide today's date at the HTTP boundary."""
+    return date.today()
+
+
+def maintenance_response(
+    result: MaintenanceDueResult,
+) -> MaintenanceEvaluationResponse:
+    """Map a domain result to the shared API response model."""
+    return MaintenanceEvaluationResponse(
+        status=result.status,
+        kilometres_travelled_since_last_service=(
+            result.kilometres_travelled_since_last_service
+        ),
+        kilometres_remaining=result.kilometres_remaining,
+        months_remaining=result.months_remaining,
+        reasons=list(result.reasons),
+    )
 
 app = FastAPI(
     title="Customer Ownership Copilot API",
@@ -89,12 +119,40 @@ def evaluate_maintenance(
             detail=str(exc),
         ) from exc
 
-    return MaintenanceEvaluationResponse(
-        status=result.status,
-        kilometres_travelled_since_last_service=(
-            result.kilometres_travelled_since_last_service
-        ),
-        kilometres_remaining=result.kilometres_remaining,
-        months_remaining=result.months_remaining,
-        reasons=list(result.reasons),
-    )
+    return maintenance_response(result)
+
+
+@app.get(
+    "/vehicles/{vehicle_id}/maintenance",
+    response_model=MaintenanceEvaluationResponse,
+    tags=["maintenance"],
+)
+def get_vehicle_maintenance(
+    vehicle_id: int = Path(gt=0),
+    session: Session = Depends(get_db),
+    evaluation_date: date = Depends(get_evaluation_date),
+) -> MaintenanceEvaluationResponse:
+    """Evaluate maintenance status using stored vehicle and service data."""
+    try:
+        result = evaluate_vehicle_maintenance(
+            session=session,
+            vehicle_id=vehicle_id,
+            evaluation_date=evaluation_date,
+        )
+    except VehicleNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vehicle not found",
+        ) from exc
+    except ScheduledServiceNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Vehicle has no scheduled service record",
+        ) from exc
+    except MaintenanceServiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Maintenance evaluation could not be completed",
+        ) from exc
+
+    return maintenance_response(result)

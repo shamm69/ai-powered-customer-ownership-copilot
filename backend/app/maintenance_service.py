@@ -14,6 +14,14 @@ class MaintenanceServiceError(ValueError):
     """Raised when stored data cannot support a maintenance evaluation."""
 
 
+class VehicleNotFoundError(MaintenanceServiceError):
+    """Raised when a requested vehicle does not exist."""
+
+
+class ScheduledServiceNotFoundError(MaintenanceServiceError):
+    """Raised when a vehicle has no scheduled service record."""
+
+
 def _completed_months_between(service_date: date, evaluation_date: date) -> int:
     """Return whole calendar months elapsed between two dates."""
     if evaluation_date < service_date:
@@ -37,11 +45,11 @@ def evaluate_vehicle_maintenance(
     """Evaluate maintenance status using a stored vehicle and service record."""
     vehicle = get_vehicle_by_id(session, vehicle_id)
     if vehicle is None:
-        raise MaintenanceServiceError(f"Vehicle {vehicle_id} was not found")
+        raise VehicleNotFoundError(f"Vehicle {vehicle_id} was not found")
 
     latest_service = get_latest_scheduled_service(session, vehicle_id)
     if latest_service is None:
-        raise MaintenanceServiceError(
+        raise ScheduledServiceNotFoundError(
             f"Vehicle {vehicle_id} has no scheduled service record"
         )
 
