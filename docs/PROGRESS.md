@@ -2,13 +2,24 @@
 
 ## Current Phase
 
-Phase 2 — Synthetic SQLite Data Layer
+Phase 2 complete — Phase 3 not started
 
 ## Current Task
 
-Preparing the initial synthetic data model for customers, vehicles, and service history.
+Define and document the Phase 3 scope before beginning implementation.
 
 ## Completed
+
+### 2026-08-11 — Phase 2
+
+- Added the SQLite and SQLAlchemy database foundation.
+- Added Customer, Vehicle, and ServiceRecord models with tested relationships.
+- Added a small deterministic synthetic seed dataset.
+- Added vehicle lookup and latest scheduled-service queries.
+- Connected stored vehicle and service data to the maintenance evaluator through an application service.
+- Added `GET /vehicles/{vehicle_id}/maintenance` for stored-data maintenance evaluation.
+- Added isolated database, query, service, and API tests.
+- Completed Phase 2 with 51 tests passing.
 
 ### 2026-08-06 — Phase 1
 
@@ -46,20 +57,17 @@ Preparing the initial synthetic data model for customers, vehicles, and service 
 
 - Phase 0 completed.
 - Phase 1 completed.
+- Phase 2 completed.
 - FastAPI backend foundation is working and tested.
-- Deterministic maintenance logic is working independently of FastAPI.
+- The original deterministic maintenance evaluator remains independent of persistence and unchanged.
 - Maintenance evaluation is exposed through a typed FastAPI endpoint.
-- Complete backend test suite is passing.
-- Repository and GitHub are synchronized.
+- Stored vehicle maintenance evaluation is exposed through a typed FastAPI endpoint.
+- Complete backend test suite has 51 tests passing.
+- Local `main` is synchronized with `origin/main` after implementation commit `e30b32d`.
 
 ## Next Steps
 
-Phase 2:
-- Design minimal synthetic customer, vehicle, and service-history data models.
-- Introduce SQLite as the persistent local data store.
-- Add a small synthetic seed dataset.
-- Add simple tested data-access functions.
-- Connect stored vehicle/service data to the existing maintenance capability without changing the maintenance business rules.
+- Define and document the Phase 3 scope before beginning implementation.
 
 ## Blockers
 
