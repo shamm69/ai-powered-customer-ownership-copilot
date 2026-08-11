@@ -14,4 +14,3 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False
 
 class Base(DeclarativeBase):
     """Base class shared by all SQLAlchemy ORM models."""
-
