@@ -14,11 +14,60 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
-from app.main import app, get_evaluation_date
+from app.gemini_answer_generator import (
+    GeminiConfigurationError,
+    GeminiGenerationError,
+)
+from app.grounded_answers import AnswerSource, GroundedAnswer, UNSUPPORTED_ANSWER
+from app.main import app, build_rag_service, get_evaluation_date, get_rag_service
 from app.maintenance import MaintenanceDueResult, MaintenanceStatus
 from app.models import Customer, ServiceRecord, Vehicle
+from app.retrieval_confidence import RetrievalSupportStatus
 
 client = TestClient(app)
+
+
+class FakeRagService:
+    def __init__(
+        self,
+        answer: GroundedAnswer | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.answer = answer
+        self.error = error
+        self.questions: list[str] = []
+
+    def answer_question(self, question: str) -> GroundedAnswer:
+        self.questions.append(question)
+        if self.error is not None:
+            raise self.error
+        if self.answer is None:
+            raise AssertionError("Fake RAG service requires an answer")
+        return self.answer
+
+
+@pytest.fixture
+def support_api_client() -> Iterator[tuple[TestClient, FakeRagService]]:
+    fake_service = FakeRagService(
+        GroundedAnswer(
+            answer="Follow both distance and time service intervals.",
+            retrieval_status=RetrievalSupportStatus.SUPPORTED,
+            sources=(
+                AnswerSource(
+                    source_id="maintenance-basics.md",
+                    document_title="Scheduled Maintenance Basics",
+                    section_title="Scheduled Maintenance Basics",
+                    chunk_id="maintenance-basics.md::chunk-001",
+                ),
+            ),
+        )
+    )
+    app.dependency_overrides[get_rag_service] = lambda: fake_service
+    try:
+        with TestClient(app) as test_client:
+            yield test_client, fake_service
+    finally:
+        app.dependency_overrides.clear()
 
 
 @pytest.fixture
@@ -95,6 +144,155 @@ def test_health_check() -> None:
 
     assert response.status_code == 200
     assert response.json() == {"status": "healthy"}
+
+
+def test_support_query_returns_supported_answer_and_sources(
+    support_api_client: tuple[TestClient, FakeRagService],
+) -> None:
+    test_client, fake_service = support_api_client
+
+    response = test_client.post(
+        "/support/query",
+        json={"question": "  When should service be performed?  "},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "answer": "Follow both distance and time service intervals.",
+        "retrieval_status": "supported",
+        "sources": [
+            {
+                "source_id": "maintenance-basics.md",
+                "document_title": "Scheduled Maintenance Basics",
+                "section_title": "Scheduled Maintenance Basics",
+                "chunk_id": "maintenance-basics.md::chunk-001",
+            }
+        ],
+    }
+    assert fake_service.questions == ["When should service be performed?"]
+
+
+def test_support_query_returns_unsupported_fallback_without_sources(
+    support_api_client: tuple[TestClient, FakeRagService],
+) -> None:
+    test_client, fake_service = support_api_client
+    fake_service.answer = GroundedAnswer(
+        answer=UNSUPPORTED_ANSWER,
+        retrieval_status=RetrievalSupportStatus.UNSUPPORTED,
+        sources=(),
+    )
+
+    response = test_client.post(
+        "/support/query",
+        json={"question": "What unrelated information is available?"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "answer": UNSUPPORTED_ANSWER,
+        "retrieval_status": "unsupported",
+        "sources": [],
+    }
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [{}, {"question": ""}, {"question": "   "}, {"question": 42}],
+)
+def test_support_query_rejects_invalid_request_input(
+    support_api_client: tuple[TestClient, FakeRagService],
+    payload: dict[str, object],
+) -> None:
+    test_client, fake_service = support_api_client
+
+    response = test_client.post("/support/query", json=payload)
+
+    assert response.status_code == 422
+    assert fake_service.questions == []
+
+
+def test_support_query_translates_provider_generation_failure(
+    support_api_client: tuple[TestClient, FakeRagService],
+) -> None:
+    test_client, fake_service = support_api_client
+    fake_service.error = GeminiGenerationError("provider detail")
+
+    response = test_client.post(
+        "/support/query",
+        json={"question": "When should service be performed?"},
+    )
+
+    assert response.status_code == 502
+    assert response.json() == {
+        "detail": "Support answer provider could not generate a response"
+    }
+
+
+def test_support_query_translates_internal_service_failure(
+    support_api_client: tuple[TestClient, FakeRagService],
+) -> None:
+    test_client, fake_service = support_api_client
+    fake_service.error = ValueError("internal detail")
+
+    response = test_client.post(
+        "/support/query",
+        json={"question": "When should service be performed?"},
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Support query could not be completed"}
+
+
+def test_support_query_translates_missing_runtime_configuration() -> None:
+    build_rag_service.cache_clear()
+    try:
+        with patch(
+            "app.main.build_rag_service",
+            side_effect=GeminiConfigurationError("missing key"),
+        ):
+            response = client.post(
+                "/support/query",
+                json={"question": "When should service be performed?"},
+            )
+    finally:
+        build_rag_service.cache_clear()
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "Support answer service is not configured"
+    }
+
+
+def test_support_query_translates_preparation_failure() -> None:
+    build_rag_service.cache_clear()
+    try:
+        with patch(
+            "app.main.build_rag_service",
+            side_effect=RuntimeError("preparation detail"),
+        ):
+            response = client.post(
+                "/support/query",
+                json={"question": "When should service be performed?"},
+            )
+    finally:
+        build_rag_service.cache_clear()
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "Support answer service could not be prepared"
+    }
+
+
+def test_openapi_schema_includes_typed_support_endpoint() -> None:
+    schema = client.get("/openapi.json").json()
+    operation = schema["paths"]["/support/query"]["post"]
+
+    assert operation["requestBody"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/SupportQueryRequest"
+    }
+    assert operation["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/SupportQueryResponse"}
 
 
 def test_evaluate_maintenance_not_due_response() -> None:
