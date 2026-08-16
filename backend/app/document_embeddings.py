@@ -68,7 +68,7 @@ def index_document_chunks(
         raise ValueError("Embedder must return one vector for each document chunk")
 
     embeddings = tuple(
-        _validate_embedding(embedding) for embedding in raw_embeddings
+        validate_embedding_vector(embedding) for embedding in raw_embeddings
     )
     expected_dimensions = len(embeddings[0])
     if any(len(embedding) != expected_dimensions for embedding in embeddings[1:]):
@@ -80,7 +80,8 @@ def index_document_chunks(
     )
 
 
-def _validate_embedding(embedding: Sequence[float]) -> tuple[float, ...]:
+def validate_embedding_vector(embedding: Sequence[float]) -> tuple[float, ...]:
+    """Convert and validate one numeric embedding vector."""
     try:
         vector = tuple(float(value) for value in embedding)
     except (TypeError, ValueError) as error:
