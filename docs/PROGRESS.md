@@ -2,11 +2,11 @@
 
 ## Current Phase
 
-Phase 4 complete — Phase 5 not started
+Phase 5 complete — Phase 6 not started
 
 ## Current Task
 
-Phase 5 — Frontend is next; implementation has not started.
+Phase 5 — Frontend closeout is complete. Phase 6 has not started.
 
 ## Authoritative Roadmap
 
@@ -26,6 +26,44 @@ history were not renamed or redone; Phase 2.5 is not an additional permanent
 roadmap phase.
 
 ## Completed
+
+### 2026-08-18 — Phase 5
+
+- Added a responsive React, Vite, and TypeScript frontend under `frontend/`
+  with strict typed contracts, a native-fetch API client, and a Vite development
+  proxy for the FastAPI backend.
+- Built a polished automotive ownership dashboard around the seeded Aster
+  Motors Comet demo vehicle, with clear vehicle context, quick actions, and the
+  unified ownership assistant as the primary interaction.
+- Integrated the typed `POST /assistant/query` flow without adding frontend
+  intent classification or duplicating backend routing and orchestration.
+- Added dedicated presentations for authoritative deterministic maintenance,
+  grounded support answers and source metadata, local mock human handoffs, and
+  the explicitly experimental predictive-maintenance comparison.
+- Added a truthful eight-field predictive experiment input flow with no hidden
+  defaults. The UI keeps deterministic and experimental results separate,
+  states that the model uses synthetic data and failed its replacement gate,
+  and never produces a hybrid or final maintenance status.
+- Preserved confidence-gated RAG fallback behavior, visible mock-handoff
+  disclaimers, friendly validation/network/provider errors, loading states,
+  and context-required, unsupported, and clarification-required outcomes.
+- Completed responsive and interaction polish for desktop, narrower laptop,
+  tablet, and mobile-width layouts without adding a router, global state
+  library, large UI framework, or fabricated product capabilities.
+- Restored the ignored project-local `.venv` with installed Python 3.13.5 and
+  the unchanged backend requirements; `pip check` reports no broken
+  requirements.
+- Completed Phase 5 with 412 backend tests and 38 frontend tests passing, plus
+  clean frontend typecheck, lint, and production build results.
+- Verified FastAPI and Vite together through the Vite proxy: health,
+  authoritative stored-vehicle maintenance, a real grounded Gemini answer with
+  controlled-corpus sources, deterministic unsupported support fallback with
+  no sources, structured mock handoff, and the real persisted experimental
+  comparison at its stored `0.19` threshold all succeeded.
+- Automated rendered-browser screenshots were unavailable in the execution
+  environment. Live server checks, component rendering tests, and source-level
+  responsive review were completed instead; this did not require a product-code
+  workaround.
 
 ### 2026-08-18 — Phase 4
 
@@ -160,7 +198,7 @@ roadmap phase.
   temporary Phase 2.5 implementation label.
 - Phase 3 completed.
 - Phase 4 completed.
-- Phase 5 has not started.
+- Phase 5 completed.
 - Phase 6 has not started.
 - FastAPI backend foundation is working and tested.
 - The original deterministic maintenance evaluator remains independent of persistence and unchanged.
@@ -174,14 +212,18 @@ roadmap phase.
   decision and uses an ignored local artifact with threshold `0.19`.
 - `POST /assistant/query` exposes deterministic routing, explicit orchestration,
   and structured capability-specific results without replacing direct APIs.
-- Complete backend test suite has 412 tests passing in the project-local Python
-  3.12.10 `.venv`.
-- Local `main` is synchronized with `origin/main` after the Phase 4.7
-  integration-hardening commit.
+- Complete backend test suite has 412 tests passing in the repaired
+  project-local Python 3.13.5 `.venv`; `pip check` is clean.
+- Complete frontend suite has 38 tests passing, with typecheck, lint, and the
+  Vite production build also passing.
+- The React frontend uses `POST /assistant/query` through a local Vite proxy and
+  preserves structured maintenance, grounded support, mock handoff, and
+  experimental comparison results.
 
 ## Next Steps
 
-- Begin Phase 5 — Frontend as a separately approved task.
+- Begin Phase 6 — Observability, Docker, documentation, and demo only as a
+  separately approved task.
 
 ## Blockers
 

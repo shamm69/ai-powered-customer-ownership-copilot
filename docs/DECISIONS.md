@@ -157,3 +157,40 @@ Rejected:
 - A real CRM integration for the bounded mock handoff capability
 - Automatically invoking experimental ML for ordinary maintenance requests
 - Replacing direct APIs with only the unified assistant endpoint
+
+---
+
+## Decision 8: Build one typed ownership dashboard around the unified assistant
+
+Date:
+2026-08-18
+
+Decision:
+
+Implement Phase 5 as one responsive React, Vite, and TypeScript ownership
+dashboard with an embedded assistant. Use a small native-fetch client with
+runtime response validation and a Vite development proxy to the existing
+FastAPI `POST /assistant/query` endpoint.
+
+Render each structured orchestration result with a dedicated presentation:
+authoritative deterministic maintenance, grounded support with sources, local
+mock handoff, and explicitly experimental predictive comparison. Preserve
+context-required, unsupported, clarification, loading, and error outcomes
+without adding frontend intent classification.
+
+Reason:
+
+A single polished ownership workspace makes the proof of concept easy to
+understand and demonstrate while keeping the backend as the source of routing
+and business truth. Typed boundaries prevent capability results from being
+silently flattened or confused, and the Vite proxy supports local development
+without changing backend CORS solely for the frontend.
+
+Rejected:
+
+- A generic chatbot or raw API-response interface
+- Frontend routing or intent classification that competes with the backend
+- Combining deterministic and experimental maintenance into a final status
+- Hiding the synthetic-data, failed-gate, or local mock-handoff limitations
+- Adding React Router, Redux, a large UI framework, or a data-fetching framework
+  without demonstrated need

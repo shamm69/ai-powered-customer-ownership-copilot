@@ -23,7 +23,7 @@ The system aims to provide a single conversational layer that answers:
 
 "What does my car need, and when?"
 
-## Current Backend Capabilities
+## Current Capabilities
 
 0. Data Layer
 
@@ -70,7 +70,19 @@ The system aims to provide a single conversational layer that answers:
 - Exposes the unified typed `POST /assistant/query` entry point while preserving
   the existing direct endpoints.
 
-The frontend is planned for Phase 5. Observability, Docker, final documentation,
+6. React Frontend
+
+- Uses React, Vite, and TypeScript for one responsive automotive ownership
+  dashboard and embedded assistant experience.
+- Connects to `POST /assistant/query` through a typed native-fetch client and a
+  Vite development proxy.
+- Presents authoritative maintenance, grounded support sources, local mock
+  handoffs, and experimental predictive comparison results as distinct typed
+  experiences rather than raw JSON or generic chat text.
+- Includes explicit synthetic-data, failed-gate, non-override, and mock-service
+  disclosures wherever those boundaries matter.
+
+Phase 5 frontend work is complete. Observability, Docker, final documentation,
 and demo work remain planned for Phase 6.
 
 ## Architecture
@@ -79,9 +91,11 @@ The implemented FastAPI backend uses a deterministic router followed by an
 explicit orchestrator. It is a tool-orchestration architecture, not an
 autonomous multi-agent system.
 
-Current backend flow:
+Current application flow:
 
-User or API client
+User
+-> Responsive React ownership dashboard and assistant
+-> Typed frontend API client and Vite development proxy
 -> FastAPI validation and runtime dependencies
 -> Deterministic router
 -> Explicit orchestrator
@@ -118,6 +132,10 @@ The unified `POST /assistant/query` endpoint supplements these direct endpoints:
 - `GET /vehicles/{vehicle_id}/maintenance`
 - `POST /support/query`
 - `POST /maintenance/predictive/compare`
+
+The frontend uses the unified endpoint as its primary interaction contract. It
+does not recreate routing rules, flatten structured capability results, invent
+missing vehicle or experiment inputs, or replace the direct APIs.
 
 ## Constraints
 
