@@ -14,6 +14,7 @@ import type {
   OrchestrationOutcome,
 } from '../types/assistant'
 import { MaintenanceResultCard } from './results/MaintenanceResultCard'
+import { SupportResultCard } from './results/SupportResultCard'
 
 interface AssistantWorkspaceProps {
   draft: string
@@ -231,10 +232,13 @@ function AssistantResponseSummary({ response }: { response: AssistantQueryRespon
     return <MaintenanceResultCard result={response.maintenance_result} />
   }
 
+  if (response.invoked_capability === 'support_knowledge') {
+    return <SupportResultCard result={response.support_result} />
+  }
+
   const label = response.invoked_capability
     ? capabilityLabels[response.invoked_capability]
     : outcomeLabels[response.outcome]
-  const answer = response.support_result?.answer ?? response.message
 
   return (
     <div className="assistant-summary">
@@ -244,7 +248,7 @@ function AssistantResponseSummary({ response }: { response: AssistantQueryRespon
           <small>{outcomeLabels[response.outcome]}</small>
         ) : null}
       </div>
-      <p>{answer}</p>
+      <p>{response.message}</p>
       {response.outcome === 'context_required' ? (
         <span className="assistant-summary__hint">
           Add the requested context and submit your question again.

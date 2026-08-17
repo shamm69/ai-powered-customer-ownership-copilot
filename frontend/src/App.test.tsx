@@ -26,7 +26,14 @@ const supportResponse: AssistantQueryResponse = {
   support_result: {
     answer: 'The support guide explains how to respond to the warning indicator.',
     retrieval_status: 'supported',
-    sources: [],
+    sources: [
+      {
+        source_id: 'warning-indicators',
+        document_title: 'Warning Indicator Guide',
+        section_title: 'Responding to dashboard warnings',
+        chunk_id: 'warning-indicators-responding-01',
+      },
+    ],
   },
   escalation_result: null,
   experimental_comparison_result: null,
@@ -115,6 +122,10 @@ describe('App', () => {
         'The support guide explains how to respond to the warning indicator.',
       ),
     ).toBeInTheDocument()
+    expect(screen.getByLabelText('Grounded support answer')).toBeInTheDocument()
+    expect(screen.getByText('Warning Indicator Guide')).toBeInTheDocument()
+    expect(screen.getByText('Responding to dashboard warnings')).toBeInTheDocument()
+    expect(screen.queryByText('Support knowledge was retrieved and grounded.')).not.toBeInTheDocument()
   })
 
   it('uses the dedicated authoritative card for a maintenance response', async () => {
