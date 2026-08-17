@@ -1,42 +1,58 @@
+import { useState } from 'react'
 import './App.css'
+import { AppHeader } from './components/AppHeader'
+import { AssistantWorkspace } from './components/AssistantWorkspace'
+import { QuickActions } from './components/QuickActions'
+import { VehicleOverview } from './components/VehicleOverview'
+
+const demoVehicle = {
+  ownerName: 'Avery Singh',
+  manufacturer: 'Aster Motors',
+  model: 'Comet',
+  modelYear: 2023,
+  currentOdometerKm: 12_500,
+  serviceIntervalKm: 10_000,
+  serviceIntervalMonths: 12,
+  latestScheduledServiceDate: '15 Jul 2026',
+  latestScheduledServiceOdometerKm: 12_000,
+} as const
 
 function App() {
+  const [assistantDraft, setAssistantDraft] = useState('')
+
   return (
-    <main className="foundation">
-      <header className="foundation__header">
-        <a className="brand" href="/" aria-label="Customer Ownership Copilot home">
-          <span className="brand__mark" aria-hidden="true">
-            CO
-          </span>
-          <span className="brand__name">Ownership Copilot</span>
-        </a>
-        <span className="phase-label">Phase 5 foundation</span>
-      </header>
+    <div className="app-shell">
+      <AppHeader />
 
-      <section className="foundation__content" aria-labelledby="foundation-title">
-        <div className="foundation__copy">
-          <p className="eyebrow">Automotive ownership, clearly connected</p>
-          <h1 id="foundation-title">A confident home for every ownership moment.</h1>
-          <p className="foundation__description">
-            The interface foundation is ready for a polished vehicle dashboard
-            and an assistant grounded in trusted ownership tools.
-          </p>
-        </div>
-
-        <div className="foundation__status" aria-label="Frontend foundation status">
-          <span className="status-indicator" aria-hidden="true" />
+      <main className="dashboard">
+        <section className="dashboard__intro" aria-labelledby="dashboard-title">
           <div>
-            <strong>Design foundation ready</strong>
-            <span>Dashboard experience comes next</span>
+            <p className="eyebrow">Avery&apos;s garage</p>
+            <h1 id="dashboard-title">Your vehicle, clearly understood.</h1>
           </div>
-        </div>
-      </section>
+          <p className="dashboard__intro-copy">
+            Review the essentials, check maintenance, or ask for grounded ownership support.
+          </p>
+        </section>
 
-      <footer className="foundation__footer">
-        <span>Customer Ownership Copilot</span>
-        <span>Professional assistance, structured by trusted services</span>
+        <div className="dashboard__grid">
+          <div className="ownership-column">
+            <VehicleOverview vehicle={demoVehicle} />
+            <QuickActions onSelect={setAssistantDraft} />
+          </div>
+
+          <AssistantWorkspace
+            draft={assistantDraft}
+            onDraftChange={setAssistantDraft}
+          />
+        </div>
+      </main>
+
+      <footer className="app-footer">
+        <span>Ownership Copilot</span>
+        <span>Demo experience · Synthetic vehicle data</span>
       </footer>
-    </main>
+    </div>
   )
 }
 

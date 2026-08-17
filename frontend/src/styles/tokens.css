@@ -1,20 +1,22 @@
 :root {
   color-scheme: light;
 
-  --color-canvas: #f2f5f5;
+  --color-canvas: #f3f6f6;
   --color-surface: #ffffff;
-  --color-surface-muted: #e9eeee;
+  --color-surface-soft: #f7f9f9;
+  --color-surface-muted: #e8eeee;
   --color-surface-translucent: rgb(255 255 255 / 78%);
-  --color-text-strong: #14242b;
-  --color-text: #304149;
-  --color-text-muted: #5f7178;
-  --color-text-subtle: #7d8c91;
+  --color-text-strong: #17272f;
+  --color-text: #33464f;
+  --color-text-muted: #5c7079;
+  --color-text-subtle: #7a8c93;
   --color-text-on-primary: #ffffff;
-  --color-primary: #225f65;
-  --color-primary-hover: #194d52;
-  --color-primary-soft: #dcebec;
-  --color-border: #d4dede;
-  --color-border-subtle: #e2e8e8;
+  --color-primary: #20576d;
+  --color-primary-hover: #17475a;
+  --color-primary-soft: #deebef;
+  --color-border: #d3dddf;
+  --color-border-subtle: #e2e9ea;
+  --color-border-strong: #bccbce;
   --color-positive: #2f7d5c;
   --color-positive-soft: #dceee5;
   --color-attention: #a96f17;
@@ -52,7 +54,7 @@
   --radius-xl: 1.5rem;
   --radius-pill: 999px;
 
-  --shadow-sm: 0 0.5rem 1.5rem rgb(20 36 43 / 6%);
-  --shadow-md: 0 1rem 2.5rem rgb(20 36 43 / 10%);
-  --focus-ring: 0 0 0 0.2rem rgb(34 95 101 / 22%);
+  --shadow-sm: 0 0.5rem 1.5rem rgb(23 39 47 / 5%);
+  --shadow-md: 0 1rem 2.5rem rgb(23 39 47 / 9%);
+  --focus-ring: 0 0 0 0.2rem rgb(32 87 109 / 20%);
 }
