@@ -33,16 +33,19 @@ The MVP includes:
   - Vehicle information
   - Service history
 
-- Acts as the data source for predictive maintenance and recommendation services.
+- Supplies stored vehicle/service data to deterministic maintenance evaluation.
+- The experimental ML comparison currently accepts explicit runtime features and
+  is not integrated with persistence.
 
 1. RAG Retrieval
 - Uses Retrieval Augmented Generation (RAG)
 - Provides grounded answers with sources
 
 2. Predictive Maintenance Service
-- Uses synthetic vehicle and service-history data
-- Estimates service due status using rule-based logic and a lightweight ML experiment
-- Evaluates whether the ML approach provides value over the baseline
+- Keeps the pure deterministic evaluator authoritative for MVP maintenance status
+- Uses a controlled synthetic dataset for an isolated lightweight ML experiment
+- Exposes deterministic status and experimental 90-day ML risk side by side
+  without producing a hybrid or final decision
 
 3. Recommendation Engine
 - Provides explainable maintenance suggestions

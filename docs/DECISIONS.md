@@ -91,3 +91,28 @@ Provides better testing, reliability, and explainability while still demonstrati
 Future possibility:
 
 A graph-based agent framework may be evaluated if the workflow complexity requires it.
+
+---
+
+## Decision 6: Keep predictive ML experimental and deterministic rules authoritative
+
+Date:
+2026-08-17
+
+Decision:
+
+Keep the deterministic maintenance evaluator as the authoritative MVP mechanism.
+Retain Logistic Regression only as an experimental complementary probability
+signal, exposed beside the deterministic result without a hybrid/final decision.
+
+Reason:
+
+The model improved held-out recall and exceeded the predefined ROC-AUC boundary,
+but it failed the frozen overall useful-value gate because its F1 improvement was
+below the required absolute 0.05. The result comes from controlled synthetic data
+and does not establish real-world predictive-maintenance accuracy.
+
+Rejected:
+
+Replacing or overriding deterministic maintenance status with the experimental
+model.

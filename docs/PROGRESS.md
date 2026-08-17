@@ -2,13 +2,53 @@
 
 ## Current Phase
 
-Phase 3 complete — next phase not started
+Phase 2.5 complete — Phase 4 not started
 
 ## Current Task
 
-Define the scope of the next phase before beginning implementation.
+Phase 4 — Router and Tool Integration is next; implementation has not started.
 
 ## Completed
+
+### 2026-08-17 — Phase 2.5
+
+- Completed the missing original predictive-maintenance experiment scope after
+  the persistence work had already been labeled Phase 2 and RAG had been
+  completed as Phase 3. Existing completed work and commit history were not
+  relabeled or redone.
+- Generated 1,500 deterministic synthetic vehicle snapshots with an independent
+  binary target, `maintenance_needed_within_90_days` (553 positive and 947
+  negative rows), and confirmed through lightweight analysis that the dataset
+  was learnable but non-trivial with no configured diagnostic warnings.
+- Reused the unchanged deterministic maintenance evaluator as the baseline,
+  mapping `not_due` to negative and `due_soon`/`overdue` to positive.
+- Trained one CPU-friendly `StandardScaler` + `LogisticRegression` pipeline on a
+  deterministic stratified 70/15/15 split: 1,050 training, 225 validation, and
+  225 held-out test rows.
+- Selected the experimental probability threshold of `0.19` using validation
+  data only, then evaluated both systems once on the held-out test partition.
+- Held-out deterministic results: 47.24% precision, 72.29% recall, 57.14% F1,
+  and 62.55% balanced accuracy.
+- Held-out experimental ML results: 43.95% precision, 83.13% recall, 57.50% F1,
+  60.58% balanced accuracy, 73.84% ROC-AUC, and 69.03% average precision.
+- Applied the predefined useful-value gate: F1 improvement of at least 0.05
+  failed, recall at least equal to baseline passed, ROC-AUC of at least 0.70
+  passed, and the overall gate failed.
+- Retained the fitted pipeline and transparent metadata as ignored local
+  experimental artifacts; generated artifacts are not committed to Git.
+- Added an immutable experimental prediction service, a side-by-side comparison
+  service, and typed `POST /maintenance/predictive/compare` handling.
+- The comparison preserves the original deterministic result and experimental
+  90-day probability signal separately. It creates no hybrid/final maintenance
+  decision and returns HTTP 503 when the experimental artifact is unavailable.
+- Confirmed the deterministic evaluator remains the authoritative MVP
+  maintenance mechanism. ML is retained only as an experimental complementary
+  higher-recall/risk-ranking signal.
+- The experiment uses controlled synthetic data and does not establish
+  real-world predictive-maintenance accuracy.
+- Reconciled dependencies in the isolated project-local `.venv` using Python
+  3.12.10; `pip check` reported no broken requirements.
+- Completed Phase 2.5 with 291 backend tests passing.
 
 ### 2026-08-17 — Phase 3
 
@@ -76,6 +116,7 @@ Define the scope of the next phase before beginning implementation.
 - Phase 0 completed.
 - Phase 1 completed.
 - Phase 2 completed.
+- Phase 2.5 completed.
 - Phase 3 completed.
 - FastAPI backend foundation is working and tested.
 - The original deterministic maintenance evaluator remains independent of persistence and unchanged.
@@ -83,12 +124,17 @@ Define the scope of the next phase before beginning implementation.
 - Stored vehicle maintenance evaluation is exposed through a typed FastAPI endpoint.
 - Grounded support-document answers are exposed through typed `POST /support/query` responses with source metadata.
 - Unsupported support queries return a deterministic fallback without invoking Gemini.
-- Complete backend test suite has 153 tests passing.
-- Local `main` is synchronized with `origin/main`.
+- The deterministic maintenance evaluator remains authoritative for MVP status;
+  predictive ML remains an experimental complementary signal only.
+- `POST /maintenance/predictive/compare` exposes both signals without a hybrid
+  decision and uses an ignored local artifact with threshold `0.19`.
+- Complete backend test suite has 291 tests passing in the project-local Python
+  3.12.10 `.venv`.
+- Local `main` is synchronized with `origin/main` after Phase 2.5 closeout.
 
 ## Next Steps
 
-- Define the scope of the next phase before beginning implementation.
+- Begin Phase 4 — Router and Tool Integration as a separately approved task.
 
 ## Blockers
 
