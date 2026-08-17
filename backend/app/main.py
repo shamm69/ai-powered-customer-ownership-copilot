@@ -31,6 +31,19 @@ from app.maintenance_service import (
     VehicleNotFoundError,
     evaluate_vehicle_maintenance,
 )
+from app.predictive_maintenance_artifact import (
+    ExperimentalArtifactCompatibilityError,
+)
+from app.predictive_maintenance_comparison import (
+    MaintenancePredictionComparison,
+    MaintenancePredictionComparisonService,
+    MaintenanceSignalRelationship,
+    load_default_maintenance_prediction_comparison_service,
+)
+from app.predictive_maintenance_prediction import (
+    ExperimentalMaintenancePredictionError,
+    PredictiveMaintenanceFeatureInput,
+)
 from app.rag_service import RagService, prepare_rag_service
 from app.retrieval_confidence import RetrievalSupportStatus
 
@@ -61,6 +74,47 @@ class MaintenanceEvaluationResponse(BaseModel):
     kilometres_remaining: float
     months_remaining: float
     reasons: list[str]
+
+
+class PredictiveMaintenanceComparisonRequest(BaseModel):
+    """Eight public runtime features for the experimental comparison."""
+
+    model_config = ConfigDict(allow_inf_nan=False, extra="forbid")
+
+    vehicle_age_years: float = Field(gt=0)
+    current_odometer_km: float = Field(ge=0)
+    distance_since_last_scheduled_service_km: float = Field(ge=0)
+    months_since_last_scheduled_service: float = Field(ge=0)
+    service_interval_km: float = Field(gt=0)
+    service_interval_months: float = Field(gt=0)
+    average_monthly_driving_km: float = Field(gt=0)
+    usage_severity_score: float = Field(ge=0, le=1)
+
+
+class ExperimentalMaintenanceResponse(BaseModel):
+    """Typed API representation of the non-authoritative ML signal."""
+
+    maintenance_needed_within_90_days_prediction: int
+    positive_class_probability: float
+    threshold: float
+    experimental: bool
+    artifact_schema_version: int
+
+
+class MaintenanceComparisonSignalsResponse(BaseModel):
+    """Binary relationship metadata that does not merge either result."""
+
+    deterministic_binary_signal: int
+    experimental_ml_binary_signal: int
+    relationship: MaintenanceSignalRelationship
+
+
+class PredictiveMaintenanceComparisonResponse(BaseModel):
+    """Separate authoritative deterministic and experimental ML results."""
+
+    deterministic: MaintenanceEvaluationResponse
+    experimental_ml: ExperimentalMaintenanceResponse
+    comparison: MaintenanceComparisonSignalsResponse
 
 
 class SupportQueryRequest(BaseModel):
@@ -109,6 +163,32 @@ def maintenance_response(
     )
 
 
+def predictive_maintenance_comparison_response(
+    result: MaintenancePredictionComparison,
+) -> PredictiveMaintenanceComparisonResponse:
+    """Map the distinct service results without creating a final decision."""
+    experimental_result = result.experimental_result
+    return PredictiveMaintenanceComparisonResponse(
+        deterministic=maintenance_response(result.deterministic_result),
+        experimental_ml=ExperimentalMaintenanceResponse(
+            maintenance_needed_within_90_days_prediction=(
+                experimental_result.maintenance_needed_within_90_days_prediction
+            ),
+            positive_class_probability=(
+                experimental_result.positive_class_probability
+            ),
+            threshold=experimental_result.threshold,
+            experimental=experimental_result.experimental,
+            artifact_schema_version=experimental_result.artifact_schema_version,
+        ),
+        comparison=MaintenanceComparisonSignalsResponse(
+            deterministic_binary_signal=result.deterministic_binary_signal,
+            experimental_ml_binary_signal=result.experimental_ml_binary_signal,
+            relationship=result.relationship,
+        ),
+    )
+
+
 def support_response(answer: GroundedAnswer) -> SupportQueryResponse:
     """Map a grounded answer to the typed support API response."""
     return SupportQueryResponse(
@@ -145,6 +225,29 @@ def build_rag_service() -> RagService:
         top_k=top_k,
         minimum_similarity=minimum_similarity,
     )
+
+
+@lru_cache(maxsize=1)
+def build_predictive_maintenance_comparison_service(
+) -> MaintenancePredictionComparisonService:
+    """Load and cache the existing experimental comparison capability."""
+    return load_default_maintenance_prediction_comparison_service()
+
+
+def get_predictive_maintenance_comparison_service(
+) -> MaintenancePredictionComparisonService:
+    """Provide the cached comparison service or a non-sensitive 503 error."""
+    try:
+        return build_predictive_maintenance_comparison_service()
+    except (
+        FileNotFoundError,
+        ExperimentalArtifactCompatibilityError,
+        ExperimentalMaintenancePredictionError,
+    ) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Experimental maintenance comparison is unavailable",
+        ) from exc
 
 
 def get_rag_service() -> RagService:
@@ -270,6 +373,41 @@ def evaluate_maintenance(
         ) from exc
 
     return maintenance_response(result)
+
+
+@app.post(
+    "/maintenance/predictive/compare",
+    response_model=PredictiveMaintenanceComparisonResponse,
+    tags=["maintenance"],
+)
+def compare_predictive_maintenance(
+    request: PredictiveMaintenanceComparisonRequest,
+    comparison_service: MaintenancePredictionComparisonService = Depends(
+        get_predictive_maintenance_comparison_service
+    ),
+) -> PredictiveMaintenanceComparisonResponse:
+    """Expose authoritative and experimental signals without merging them."""
+    try:
+        feature_input = PredictiveMaintenanceFeatureInput(**request.model_dump())
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Predictive maintenance comparison input is invalid",
+        ) from exc
+
+    try:
+        result = comparison_service.compare(feature_input)
+    except (
+        FileNotFoundError,
+        ExperimentalArtifactCompatibilityError,
+        ExperimentalMaintenancePredictionError,
+    ) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Experimental maintenance comparison is unavailable",
+        ) from exc
+
+    return predictive_maintenance_comparison_response(result)
 
 
 @app.get(

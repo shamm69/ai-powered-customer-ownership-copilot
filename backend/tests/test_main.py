@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from dataclasses import fields
 from datetime import date
 import json
 from unittest.mock import patch
@@ -19,9 +20,25 @@ from app.gemini_answer_generator import (
     GeminiGenerationError,
 )
 from app.grounded_answers import AnswerSource, GroundedAnswer, UNSUPPORTED_ANSWER
-from app.main import app, build_rag_service, get_evaluation_date, get_rag_service
+from app.main import (
+    app,
+    build_predictive_maintenance_comparison_service,
+    build_rag_service,
+    get_evaluation_date,
+    get_predictive_maintenance_comparison_service,
+    get_rag_service,
+)
 from app.maintenance import MaintenanceDueResult, MaintenanceStatus
 from app.models import Customer, ServiceRecord, Vehicle
+from app.predictive_maintenance_comparison import (
+    MaintenancePredictionComparison,
+    MaintenanceSignalRelationship,
+)
+from app.predictive_maintenance_prediction import (
+    ExperimentalMaintenancePrediction,
+    ExperimentalMaintenancePredictionError,
+    PredictiveMaintenanceFeatureInput,
+)
 from app.retrieval_confidence import RetrievalSupportStatus
 
 client = TestClient(app)
@@ -46,6 +63,50 @@ class FakeRagService:
         return self.answer
 
 
+class FakeMaintenanceComparisonService:
+    def __init__(
+        self,
+        result: MaintenancePredictionComparison | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.result = result
+        self.error = error
+        self.inputs: list[PredictiveMaintenanceFeatureInput] = []
+
+    def compare(
+        self,
+        feature_input: PredictiveMaintenanceFeatureInput,
+    ) -> MaintenancePredictionComparison:
+        self.inputs.append(feature_input)
+        if self.error is not None:
+            raise self.error
+        if self.result is None:
+            raise AssertionError("Fake comparison service requires a result")
+        return self.result
+
+
+def predictive_comparison_result() -> MaintenancePredictionComparison:
+    return MaintenancePredictionComparison(
+        deterministic_result=MaintenanceDueResult(
+            status=MaintenanceStatus.DUE_SOON,
+            kilometres_travelled_since_last_service=8_000.0,
+            kilometres_remaining=2_000.0,
+            months_remaining=4.0,
+            reasons=("Distance caused the deterministic result.",),
+        ),
+        experimental_result=ExperimentalMaintenancePrediction(
+            maintenance_needed_within_90_days_prediction=1,
+            positive_class_probability=0.64,
+            threshold=0.37,
+            experimental=True,
+            artifact_schema_version=1,
+        ),
+        deterministic_binary_signal=1,
+        experimental_ml_binary_signal=1,
+        relationship=MaintenanceSignalRelationship.AGREE_POSITIVE,
+    )
+
+
 @pytest.fixture
 def support_api_client() -> Iterator[tuple[TestClient, FakeRagService]]:
     fake_service = FakeRagService(
@@ -63,6 +124,22 @@ def support_api_client() -> Iterator[tuple[TestClient, FakeRagService]]:
         )
     )
     app.dependency_overrides[get_rag_service] = lambda: fake_service
+    try:
+        with TestClient(app) as test_client:
+            yield test_client, fake_service
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def predictive_api_client(
+) -> Iterator[tuple[TestClient, FakeMaintenanceComparisonService]]:
+    fake_service = FakeMaintenanceComparisonService(
+        predictive_comparison_result()
+    )
+    app.dependency_overrides[
+        get_predictive_maintenance_comparison_service
+    ] = lambda: fake_service
     try:
         with TestClient(app) as test_client:
             yield test_client, fake_service
@@ -134,6 +211,23 @@ def maintenance_payload(**overrides: float) -> dict[str, float]:
         "service_interval_km": 10_000,
         "service_interval_months": 12,
         "due_soon_threshold_percent": 80,
+    }
+    payload.update(overrides)
+    return payload
+
+
+def predictive_comparison_payload(
+    **overrides: float,
+) -> dict[str, float]:
+    payload = {
+        "vehicle_age_years": 6.0,
+        "current_odometer_km": 72_000.0,
+        "distance_since_last_scheduled_service_km": 8_000.0,
+        "months_since_last_scheduled_service": 8.0,
+        "service_interval_km": 10_000.0,
+        "service_interval_months": 12.0,
+        "average_monthly_driving_km": 1_100.0,
+        "usage_severity_score": 0.65,
     }
     payload.update(overrides)
     return payload
@@ -392,6 +486,195 @@ def test_evaluate_maintenance_rejects_non_finite_values(
     )
 
     assert response.status_code == 422
+
+
+def test_predictive_comparison_returns_separate_typed_results(
+    predictive_api_client: tuple[TestClient, FakeMaintenanceComparisonService],
+) -> None:
+    test_client, fake_service = predictive_api_client
+
+    response = test_client.post(
+        "/maintenance/predictive/compare",
+        json=predictive_comparison_payload(),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "deterministic": {
+            "status": "due_soon",
+            "kilometres_travelled_since_last_service": 8_000.0,
+            "kilometres_remaining": 2_000.0,
+            "months_remaining": 4.0,
+            "reasons": ["Distance caused the deterministic result."],
+        },
+        "experimental_ml": {
+            "maintenance_needed_within_90_days_prediction": 1,
+            "positive_class_probability": 0.64,
+            "threshold": 0.37,
+            "experimental": True,
+            "artifact_schema_version": 1,
+        },
+        "comparison": {
+            "deterministic_binary_signal": 1,
+            "experimental_ml_binary_signal": 1,
+            "relationship": "agree_positive",
+        },
+    }
+    assert len(fake_service.inputs) == 1
+
+
+def test_predictive_endpoint_delegates_exact_public_feature_input(
+    predictive_api_client: tuple[TestClient, FakeMaintenanceComparisonService],
+) -> None:
+    test_client, fake_service = predictive_api_client
+    payload = predictive_comparison_payload()
+
+    response = test_client.post(
+        "/maintenance/predictive/compare",
+        json=payload,
+    )
+
+    assert response.status_code == 200
+    assert fake_service.inputs == [PredictiveMaintenanceFeatureInput(**payload)]
+    assert {field.name for field in fields(fake_service.inputs[0])} == set(
+        payload
+    )
+
+
+def test_predictive_response_has_no_hybrid_or_final_decision(
+    predictive_api_client: tuple[TestClient, FakeMaintenanceComparisonService],
+) -> None:
+    test_client, _ = predictive_api_client
+
+    response_body = test_client.post(
+        "/maintenance/predictive/compare",
+        json=predictive_comparison_payload(),
+    ).json()
+
+    serialized_response = json.dumps(response_body)
+    assert set(response_body) == {
+        "deterministic",
+        "experimental_ml",
+        "comparison",
+    }
+    assert "final_status" not in serialized_response
+    assert "combined_status" not in serialized_response
+    assert "recommended_status" not in serialized_response
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        predictive_comparison_payload(vehicle_age_years=0),
+        predictive_comparison_payload(usage_severity_score=1.1),
+        predictive_comparison_payload(
+            current_odometer_km=1_000,
+            distance_since_last_scheduled_service_km=2_000,
+        ),
+    ],
+)
+def test_predictive_comparison_rejects_invalid_input(
+    predictive_api_client: tuple[TestClient, FakeMaintenanceComparisonService],
+    payload: dict[str, float],
+) -> None:
+    test_client, fake_service = predictive_api_client
+
+    response = test_client.post(
+        "/maintenance/predictive/compare",
+        json=payload,
+    )
+
+    assert response.status_code == 422
+    assert fake_service.inputs == []
+
+
+def test_predictive_comparison_rejects_target_and_identifier_fields(
+    predictive_api_client: tuple[TestClient, FakeMaintenanceComparisonService],
+) -> None:
+    test_client, fake_service = predictive_api_client
+    payload: dict[str, float | int] = predictive_comparison_payload()
+    payload["maintenance_needed_within_90_days"] = 1
+    payload["synthetic_vehicle_id"] = 42
+
+    response = test_client.post(
+        "/maintenance/predictive/compare",
+        json=payload,
+    )
+
+    assert response.status_code == 422
+    assert fake_service.inputs == []
+
+
+def test_predictive_endpoint_never_trains_with_injected_service(
+    predictive_api_client: tuple[TestClient, FakeMaintenanceComparisonService],
+) -> None:
+    test_client, _ = predictive_api_client
+
+    with patch(
+        "app.predictive_maintenance_model.train_logistic_regression_model",
+        side_effect=AssertionError("Endpoint must not train"),
+    ):
+        response = test_client.post(
+            "/maintenance/predictive/compare",
+            json=predictive_comparison_payload(),
+        )
+
+    assert response.status_code == 200
+
+
+def test_missing_predictive_artifact_returns_non_sensitive_503() -> None:
+    internal_path = "C:/private/models/experimental.joblib"
+    build_predictive_maintenance_comparison_service.cache_clear()
+    try:
+        with patch(
+            "app.main.build_predictive_maintenance_comparison_service",
+            side_effect=FileNotFoundError(internal_path),
+        ):
+            response = client.post(
+                "/maintenance/predictive/compare",
+                json=predictive_comparison_payload(),
+            )
+    finally:
+        build_predictive_maintenance_comparison_service.cache_clear()
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "Experimental maintenance comparison is unavailable"
+    }
+    assert internal_path not in response.text
+
+
+def test_predictive_service_failure_returns_non_sensitive_503(
+    predictive_api_client: tuple[TestClient, FakeMaintenanceComparisonService],
+) -> None:
+    test_client, fake_service = predictive_api_client
+    fake_service.error = ExperimentalMaintenancePredictionError(
+        "internal model detail"
+    )
+
+    response = test_client.post(
+        "/maintenance/predictive/compare",
+        json=predictive_comparison_payload(),
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "Experimental maintenance comparison is unavailable"
+    }
+    assert "internal model detail" not in response.text
+
+
+def test_openapi_schema_includes_typed_predictive_comparison_endpoint() -> None:
+    schema = client.get("/openapi.json").json()
+    operation = schema["paths"]["/maintenance/predictive/compare"]["post"]
+
+    assert operation["requestBody"]["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/PredictiveMaintenanceComparisonRequest"}
+    assert operation["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/PredictiveMaintenanceComparisonResponse"}
 
 
 def test_stored_vehicle_maintenance_returns_typed_response(
