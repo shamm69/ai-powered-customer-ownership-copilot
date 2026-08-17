@@ -13,6 +13,7 @@ import type {
   OrchestratedCapability,
   OrchestrationOutcome,
 } from '../types/assistant'
+import { MaintenanceResultCard } from './results/MaintenanceResultCard'
 
 interface AssistantWorkspaceProps {
   draft: string
@@ -226,6 +227,10 @@ function AssistantExchange({
 }
 
 function AssistantResponseSummary({ response }: { response: AssistantQueryResponse }) {
+  if (response.invoked_capability === 'stored_vehicle_maintenance') {
+    return <MaintenanceResultCard result={response.maintenance_result} />
+  }
+
   const label = response.invoked_capability
     ? capabilityLabels[response.invoked_capability]
     : outcomeLabels[response.outcome]

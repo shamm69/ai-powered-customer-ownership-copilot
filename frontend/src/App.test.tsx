@@ -32,6 +32,29 @@ const supportResponse: AssistantQueryResponse = {
   experimental_comparison_result: null,
 }
 
+const maintenanceResponse: AssistantQueryResponse = {
+  routing_decision: {
+    intent: 'stored_vehicle_maintenance',
+    normalized_request: 'is my vehicle due for service',
+    matched_intents: ['stored_vehicle_maintenance'],
+    reason: 'The request asks for the selected vehicle maintenance status.',
+  },
+  outcome: 'executed',
+  invoked_capability: 'stored_vehicle_maintenance',
+  missing_context: [],
+  message: 'Stored-vehicle maintenance was evaluated deterministically.',
+  maintenance_result: {
+    status: 'due_soon',
+    kilometres_travelled_since_last_service: 8_100,
+    kilometres_remaining: 1_900,
+    months_remaining: 2,
+    reasons: ['Distance interval is approaching its service threshold.'],
+  },
+  support_result: null,
+  escalation_result: null,
+  experimental_comparison_result: null,
+}
+
 beforeEach(() => {
   queryAssistantMock.mockReset()
 })
@@ -92,6 +115,25 @@ describe('App', () => {
         'The support guide explains how to respond to the warning indicator.',
       ),
     ).toBeInTheDocument()
+  })
+
+  it('uses the dedicated authoritative card for a maintenance response', async () => {
+    queryAssistantMock.mockResolvedValue(maintenanceResponse)
+    render(<App />)
+
+    fireEvent.change(screen.getByLabelText('Ask the ownership assistant'), {
+      target: { value: 'Is my vehicle due for service?' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Send question' }))
+
+    expect(
+      await screen.findByLabelText('Authoritative scheduled maintenance result'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Due Soon' })).toBeInTheDocument()
+    expect(screen.getByText('1,900 km')).toBeInTheDocument()
+    expect(
+      screen.queryByText('Stored-vehicle maintenance was evaluated deterministically.'),
+    ).not.toBeInTheDocument()
   })
 
   it('shows a neutral loading state and prevents duplicate submissions', async () => {

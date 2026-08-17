@@ -656,6 +656,169 @@
   font-size: var(--font-size-xs);
 }
 
+.maintenance-result-card {
+  position: relative;
+  overflow: hidden;
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.maintenance-result-card::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 0.25rem;
+  background: currentcolor;
+  content: '';
+}
+
+.maintenance-result-card--positive {
+  color: var(--color-positive);
+}
+
+.maintenance-result-card--attention {
+  color: var(--color-attention);
+}
+
+.maintenance-result-card--critical {
+  color: var(--color-critical);
+}
+
+.maintenance-result-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.maintenance-result-card__eyebrow {
+  display: block;
+  margin-bottom: var(--space-2);
+  color: var(--color-text-subtle);
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.maintenance-result-card__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.maintenance-result-card__status h3 {
+  margin: 0;
+  color: currentcolor;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+.maintenance-result-card__status-icon {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, currentcolor 12%, transparent);
+}
+
+.maintenance-result-card__method {
+  padding: 0.25rem var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-soft);
+  color: var(--color-text-subtle);
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.maintenance-result-card__interpretation {
+  max-width: 38rem;
+  margin: var(--space-4) 0 0;
+  color: var(--color-text);
+  line-height: 1.6;
+}
+
+.maintenance-result-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: var(--space-5);
+  gap: var(--space-3);
+}
+
+.maintenance-metric {
+  display: grid;
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-soft);
+  color: var(--color-text-subtle);
+  gap: var(--space-1);
+}
+
+.maintenance-metric > svg {
+  margin-bottom: var(--space-1);
+  color: currentcolor;
+}
+
+.maintenance-metric > span {
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-medium);
+}
+
+.maintenance-metric > strong {
+  overflow-wrap: anywhere;
+  color: var(--color-text-strong);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.maintenance-result-card__reasons {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-subtle);
+  margin-top: var(--space-5);
+  color: var(--color-text);
+}
+
+.maintenance-result-card__reasons h4 {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text-strong);
+  font-size: var(--font-size-sm);
+}
+
+.maintenance-result-card__reasons ul {
+  display: grid;
+  padding: 0;
+  margin: 0;
+  gap: var(--space-2);
+  list-style: none;
+}
+
+.maintenance-result-card__reasons li {
+  position: relative;
+  padding-left: var(--space-4);
+  font-size: var(--font-size-sm);
+  line-height: 1.55;
+}
+
+.maintenance-result-card__reasons li::before {
+  position: absolute;
+  top: 0.55em;
+  left: 0;
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background: currentcolor;
+  content: '';
+}
+
 .assistant-composer {
   display: grid;
   align-items: end;
@@ -819,6 +982,19 @@
 }
 
 @media (max-width: 34rem) {
+  .maintenance-result-card__header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .maintenance-result-card__method {
+    align-self: flex-start;
+  }
+
+  .maintenance-result-card__metrics {
+    grid-template-columns: 1fr;
+  }
+
   .demo-badge {
     padding-inline: var(--space-2);
   }
