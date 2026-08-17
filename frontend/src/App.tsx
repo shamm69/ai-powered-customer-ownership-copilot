@@ -1,11 +1,15 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import './App.css'
+import { queryAssistant } from './api/assistant'
+import { ApiClientError } from './api/client'
 import { AppHeader } from './components/AppHeader'
 import { AssistantWorkspace } from './components/AssistantWorkspace'
 import { QuickActions } from './components/QuickActions'
 import { VehicleOverview } from './components/VehicleOverview'
+import type { AssistantQueryResponse } from './types/assistant'
 
 const demoVehicle = {
+  id: 1,
   ownerName: 'Avery Singh',
   manufacturer: 'Aster Motors',
   model: 'Comet',
@@ -19,6 +23,49 @@ const demoVehicle = {
 
 function App() {
   const [assistantDraft, setAssistantDraft] = useState('')
+  const [submittedMessage, setSubmittedMessage] = useState<string | null>(null)
+  const [assistantResult, setAssistantResult] =
+    useState<AssistantQueryResponse | null>(null)
+  const [assistantError, setAssistantError] = useState<string | null>(null)
+  const [isAssistantLoading, setIsAssistantLoading] = useState(false)
+  const assistantInputRef = useRef<HTMLTextAreaElement>(null)
+  const requestInFlightRef = useRef(false)
+
+  function updateAssistantDraft(draft: string) {
+    setAssistantDraft(draft)
+  }
+
+  function selectAssistantPrompt(prompt: string) {
+    updateAssistantDraft(prompt)
+    assistantInputRef.current?.focus()
+  }
+
+  async function submitAssistantMessage(message = assistantDraft) {
+    const normalizedMessage = message.trim()
+    if (!normalizedMessage || requestInFlightRef.current) {
+      return
+    }
+
+    requestInFlightRef.current = true
+    setIsAssistantLoading(true)
+    setSubmittedMessage(normalizedMessage)
+    setAssistantResult(null)
+    setAssistantError(null)
+    setAssistantDraft('')
+
+    try {
+      const result = await queryAssistant({
+        message: normalizedMessage,
+        vehicle_id: demoVehicle.id,
+      })
+      setAssistantResult(result)
+    } catch (error) {
+      setAssistantError(getAssistantErrorMessage(error))
+    } finally {
+      requestInFlightRef.current = false
+      setIsAssistantLoading(false)
+    }
+  }
 
   return (
     <div className="app-shell">
@@ -38,12 +85,27 @@ function App() {
         <div className="dashboard__grid">
           <div className="ownership-column">
             <VehicleOverview vehicle={demoVehicle} />
-            <QuickActions onSelect={setAssistantDraft} />
+            <QuickActions
+              disabled={isAssistantLoading}
+              onSelect={selectAssistantPrompt}
+            />
           </div>
 
           <AssistantWorkspace
             draft={assistantDraft}
-            onDraftChange={setAssistantDraft}
+            errorMessage={assistantError}
+            inputRef={assistantInputRef}
+            isLoading={isAssistantLoading}
+            onDraftChange={updateAssistantDraft}
+            onPromptSelect={selectAssistantPrompt}
+            onRetry={() => {
+              if (submittedMessage) {
+                void submitAssistantMessage(submittedMessage)
+              }
+            }}
+            onSubmit={() => void submitAssistantMessage()}
+            response={assistantResult}
+            submittedMessage={submittedMessage}
           />
         </div>
       </main>
@@ -54,6 +116,22 @@ function App() {
       </footer>
     </div>
   )
+}
+
+function getAssistantErrorMessage(error: unknown): string {
+  if (!(error instanceof ApiClientError)) {
+    return 'Something unexpected happened. Please try your request again.'
+  }
+  if (error.kind === 'network_error') {
+    return 'The assistant could not reach the backend service. Check that it is running and try again.'
+  }
+  if (error.kind === 'invalid_response') {
+    return 'The assistant received an unexpected response. Please try again.'
+  }
+  if (error.status === 503) {
+    return 'That capability is temporarily unavailable. Please try again later.'
+  }
+  return error.detail
 }
 
 export default App

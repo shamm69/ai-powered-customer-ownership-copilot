@@ -355,6 +355,12 @@
   transform: translateY(-1px);
 }
 
+.quick-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+}
+
 .quick-action__icon {
   display: grid;
   width: 2.25rem;
@@ -505,6 +511,151 @@
   color: var(--color-primary);
 }
 
+.suggested-prompts button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.assistant-exchange {
+  display: flex;
+  min-height: 22rem;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--space-8) clamp(0rem, 3vw, var(--space-10));
+  gap: var(--space-6);
+  overflow-y: auto;
+}
+
+.user-request {
+  max-width: min(85%, 32rem);
+  align-self: flex-end;
+}
+
+.user-request > span {
+  display: block;
+  margin: 0 var(--space-2) var(--space-2) 0;
+  color: var(--color-text-subtle);
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.user-request p {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg) var(--radius-sm) var(--radius-lg) var(--radius-lg);
+  margin: 0;
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  line-height: 1.55;
+}
+
+.assistant-response {
+  max-width: 38rem;
+}
+
+.assistant-loading,
+.assistant-error {
+  display: flex;
+  align-items: flex-start;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-soft);
+  color: var(--color-primary);
+  gap: var(--space-3);
+}
+
+.assistant-loading strong,
+.assistant-loading span,
+.assistant-error strong,
+.assistant-error p {
+  display: block;
+}
+
+.assistant-loading strong,
+.assistant-error strong {
+  color: var(--color-text-strong);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.assistant-loading span {
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+}
+
+.assistant-error {
+  border-color: var(--color-critical-soft);
+  background: var(--color-critical-soft);
+  color: var(--color-critical);
+}
+
+.assistant-error p {
+  margin: var(--space-1) 0 var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.assistant-error button {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-strong);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  gap: var(--space-2);
+}
+
+.assistant-summary {
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--color-primary);
+}
+
+.assistant-summary__heading {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-3);
+  gap: var(--space-3);
+}
+
+.assistant-summary__heading span {
+  color: var(--color-text-strong);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.assistant-summary__heading small {
+  padding: 0.1875rem var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: 0.625rem;
+  font-weight: var(--font-weight-semibold);
+}
+
+.assistant-summary > p {
+  margin: 0;
+  color: var(--color-text);
+  line-height: 1.65;
+}
+
+.assistant-summary__hint {
+  display: block;
+  margin-top: var(--space-3);
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-xs);
+}
+
 .assistant-composer {
   display: grid;
   align-items: end;
@@ -538,6 +689,10 @@
   color: var(--color-text-subtle);
 }
 
+.assistant-composer textarea:disabled {
+  cursor: wait;
+}
+
 .send-button {
   display: grid;
   width: 2.75rem;
@@ -546,6 +701,7 @@
   border-radius: var(--radius-md);
   background: var(--color-primary);
   color: var(--color-text-on-primary);
+  cursor: pointer;
   place-items: center;
 }
 
@@ -553,6 +709,16 @@
   background: var(--color-surface-muted);
   color: var(--color-text-subtle);
   cursor: not-allowed;
+}
+
+.spinning {
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .assistant-panel__footer {
@@ -641,6 +807,10 @@
 
   .assistant-panel__welcome {
     padding: var(--space-10) 0 var(--space-8);
+  }
+
+  .assistant-exchange {
+    padding-inline: 0;
   }
 
   .assistant-panel__footer span:last-child {

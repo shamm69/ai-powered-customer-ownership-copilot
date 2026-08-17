@@ -14,6 +14,7 @@ interface QuickAction {
 }
 
 interface QuickActionsProps {
+  disabled?: boolean
   onSelect: (prompt: string) => void
 }
 
@@ -44,7 +45,7 @@ const quickActions: QuickAction[] = [
   },
 ]
 
-export function QuickActions({ onSelect }: QuickActionsProps) {
+export function QuickActions({ disabled = false, onSelect }: QuickActionsProps) {
   return (
     <section className="quick-actions" aria-labelledby="quick-actions-title">
       <div className="section-heading">
@@ -59,6 +60,7 @@ export function QuickActions({ onSelect }: QuickActionsProps) {
         {quickActions.map(({ label, description, prompt, icon: Icon }) => (
           <button
             className="quick-action"
+            disabled={disabled}
             key={label}
             onClick={() => onSelect(prompt)}
             type="button"
