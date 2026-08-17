@@ -187,8 +187,8 @@ function AssistantWelcome() {
       <p className="section-label">Here for the road ahead</p>
       <h2>How can I help with your vehicle today?</h2>
       <p>
-        Ask about maintenance, vehicle support documentation, or request a human
-        handoff—all from your ownership workspace.
+        Ask about scheduled maintenance and support documentation, or create a
+        clearly labelled demo handoff.
       </p>
     </div>
   )
@@ -222,7 +222,7 @@ function AssistantExchange({
             <LoaderCircle className="spinning" size={22} aria-hidden="true" />
             <div>
               <strong>Working on your request…</strong>
-              <span>The assistant is selecting the appropriate trusted service.</span>
+              <span>The assistant is connecting to the right ownership capability.</span>
             </div>
           </div>
         ) : null}

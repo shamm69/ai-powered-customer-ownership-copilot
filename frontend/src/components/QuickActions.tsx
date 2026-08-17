@@ -48,7 +48,7 @@ const quickActions: QuickAction[] = [
   },
   {
     label: 'Explore predictive experiment',
-    description: 'Enter synthetic comparison inputs',
+    description: 'Compare rule and model signals with synthetic inputs',
     prompt: 'Show the experimental predictive maintenance comparison.',
     icon: FlaskConical,
     experimental: true,

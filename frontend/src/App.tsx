@@ -119,7 +119,8 @@ function App() {
             <h1 id="dashboard-title">Your vehicle, clearly understood.</h1>
           </div>
           <p className="dashboard__intro-copy">
-            Review the essentials, check maintenance, or ask for grounded ownership support.
+            Vehicle essentials and trusted ownership help, together in one clear
+            workspace.
           </p>
         </section>
 
@@ -157,7 +158,7 @@ function App() {
 
       <footer className="app-footer">
         <span>Ownership Copilot</span>
-        <span>Demo experience · Synthetic vehicle data</span>
+        <span>Proof of concept · Seeded demo data</span>
       </footer>
     </div>
   )
