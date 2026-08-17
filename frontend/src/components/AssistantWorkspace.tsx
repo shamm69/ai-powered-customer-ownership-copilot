@@ -13,6 +13,7 @@ import type {
   OrchestratedCapability,
   OrchestrationOutcome,
 } from '../types/assistant'
+import { HandoffResultCard } from './results/HandoffResultCard'
 import { MaintenanceResultCard } from './results/MaintenanceResultCard'
 import { SupportResultCard } from './results/SupportResultCard'
 
@@ -234,6 +235,10 @@ function AssistantResponseSummary({ response }: { response: AssistantQueryRespon
 
   if (response.invoked_capability === 'support_knowledge') {
     return <SupportResultCard result={response.support_result} />
+  }
+
+  if (response.invoked_capability === 'human_handoff') {
+    return <HandoffResultCard result={response.escalation_result} />
   }
 
   const label = response.invoked_capability

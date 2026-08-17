@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { queryAssistant } from './api/assistant'
 import { ApiClientError } from './api/client'
@@ -60,6 +60,65 @@ const maintenanceResponse: AssistantQueryResponse = {
   support_result: null,
   escalation_result: null,
   experimental_comparison_result: null,
+}
+
+const handoffResponse: AssistantQueryResponse = {
+  routing_decision: {
+    intent: 'human_handoff',
+    normalized_request: 'i want to speak with support',
+    matched_intents: ['human_handoff'],
+    reason: 'The user explicitly requested human support.',
+  },
+  outcome: 'executed',
+  invoked_capability: 'human_handoff',
+  missing_context: [],
+  message: 'A demo human handoff was created.',
+  maintenance_result: null,
+  support_result: null,
+  escalation_result: {
+    ticket_id: 'DEMO-OWNERSHIP-1042',
+    reason: 'routed_human_handoff',
+    request_summary: 'I want to speak with support.',
+    status: 'created',
+  },
+  experimental_comparison_result: null,
+}
+
+const predictiveResponse: AssistantQueryResponse = {
+  routing_decision: {
+    intent: 'experimental_predictive_maintenance',
+    normalized_request: 'show the experimental maintenance comparison',
+    matched_intents: ['experimental_predictive_maintenance'],
+    reason: 'The request explicitly asks for the experimental comparison.',
+  },
+  outcome: 'executed',
+  invoked_capability: 'experimental_predictive_maintenance_comparison',
+  missing_context: [],
+  message: 'The experimental comparison was completed.',
+  maintenance_result: null,
+  support_result: null,
+  escalation_result: null,
+  experimental_comparison_result: {
+    deterministic: {
+      status: 'not_due',
+      kilometres_travelled_since_last_service: 2_500,
+      kilometres_remaining: 7_500,
+      months_remaining: 8,
+      reasons: ['Distance and time intervals remain below their thresholds.'],
+    },
+    experimental_ml: {
+      maintenance_needed_within_90_days_prediction: 0,
+      positive_class_probability: 0.12,
+      threshold: 0.19,
+      experimental: true,
+      artifact_schema_version: 1,
+    },
+    comparison: {
+      deterministic_binary_signal: 0,
+      experimental_ml_binary_signal: 0,
+      relationship: 'agree_negative',
+    },
+  },
 }
 
 beforeEach(() => {
@@ -145,6 +204,36 @@ describe('App', () => {
     expect(
       screen.queryByText('Stored-vehicle maintenance was evaluated deterministically.'),
     ).not.toBeInTheDocument()
+  })
+
+  it('uses the dedicated demo card for a human handoff response', async () => {
+    queryAssistantMock.mockResolvedValue(handoffResponse)
+    render(<App />)
+
+    fireEvent.change(screen.getByLabelText('Ask the ownership assistant'), {
+      target: { value: 'I want to speak with support.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Send question' }))
+
+    const handoffCard = await screen.findByLabelText('Demo human handoff result')
+    expect(handoffCard).toBeInTheDocument()
+    expect(screen.getByText('DEMO-OWNERSHIP-1042')).toBeInTheDocument()
+    expect(within(handoffCard).getByText('I want to speak with support.')).toBeInTheDocument()
+    expect(screen.queryByText('A demo human handoff was created.')).not.toBeInTheDocument()
+  })
+
+  it('keeps experimental predictive responses on the generic fallback', async () => {
+    queryAssistantMock.mockResolvedValue(predictiveResponse)
+    render(<App />)
+
+    fireEvent.change(screen.getByLabelText('Ask the ownership assistant'), {
+      target: { value: 'Show the experimental maintenance comparison.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Send question' }))
+
+    expect(await screen.findByText('Experimental comparison')).toBeInTheDocument()
+    expect(screen.getByText('The experimental comparison was completed.')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Demo human handoff result')).not.toBeInTheDocument()
   })
 
   it('shows a neutral loading state and prevents duplicate submissions', async () => {
