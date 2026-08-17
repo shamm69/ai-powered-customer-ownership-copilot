@@ -222,7 +222,7 @@ describe('App', () => {
     expect(screen.queryByText('A demo human handoff was created.')).not.toBeInTheDocument()
   })
 
-  it('keeps experimental predictive responses on the generic fallback', async () => {
+  it('uses the dedicated comparison card for an experimental predictive response', async () => {
     queryAssistantMock.mockResolvedValue(predictiveResponse)
     render(<App />)
 
@@ -231,9 +231,35 @@ describe('App', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Send question' }))
 
-    expect(await screen.findByText('Experimental comparison')).toBeInTheDocument()
-    expect(screen.getByText('The experimental comparison was completed.')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Demo human handoff result')).not.toBeInTheDocument()
+    expect(
+      await screen.findByLabelText('Experimental predictive maintenance comparison'),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Experimental model output')).toHaveTextContent(
+      'Experimental',
+    )
+    expect(screen.getByLabelText('Authoritative scheduled maintenance result')).toBeInTheDocument()
+    expect(screen.getByText('12%')).toBeInTheDocument()
+    expect(screen.queryByText('The experimental comparison was completed.')).not.toBeInTheDocument()
+  })
+
+  it('keeps an unavailable experimental artifact on the honest error path', async () => {
+    queryAssistantMock.mockRejectedValue(
+      new ApiClientError('http_error', 'Internal artifact location unavailable.', 503),
+    )
+    render(<App />)
+
+    fireEvent.change(screen.getByLabelText('Ask the ownership assistant'), {
+      target: { value: 'Show the experimental maintenance comparison.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Send question' }))
+
+    expect(
+      await screen.findByText('That capability is temporarily unavailable. Please try again later.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Internal artifact location unavailable.')).not.toBeInTheDocument()
+    expect(
+      screen.queryByLabelText('Experimental predictive maintenance comparison'),
+    ).not.toBeInTheDocument()
   })
 
   it('shows a neutral loading state and prevents duplicate submissions', async () => {

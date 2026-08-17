@@ -10,11 +10,11 @@ import {
 import type { KeyboardEvent, RefObject } from 'react'
 import type {
   AssistantQueryResponse,
-  OrchestratedCapability,
   OrchestrationOutcome,
 } from '../types/assistant'
 import { HandoffResultCard } from './results/HandoffResultCard'
 import { MaintenanceResultCard } from './results/MaintenanceResultCard'
+import { PredictiveComparisonCard } from './results/PredictiveComparisonCard'
 import { SupportResultCard } from './results/SupportResultCard'
 
 interface AssistantWorkspaceProps {
@@ -35,13 +35,6 @@ const suggestedQuestions = [
   'What does a warning light mean?',
   'What should I check before a long trip?',
 ]
-
-const capabilityLabels: Record<OrchestratedCapability, string> = {
-  stored_vehicle_maintenance: 'Maintenance check',
-  support_knowledge: 'Support guidance',
-  human_handoff: 'Human support',
-  experimental_predictive_maintenance_comparison: 'Experimental comparison',
-}
 
 const outcomeLabels: Record<OrchestrationOutcome, string> = {
   executed: 'Completed',
@@ -241,17 +234,14 @@ function AssistantResponseSummary({ response }: { response: AssistantQueryRespon
     return <HandoffResultCard result={response.escalation_result} />
   }
 
-  const label = response.invoked_capability
-    ? capabilityLabels[response.invoked_capability]
-    : outcomeLabels[response.outcome]
+  if (response.invoked_capability === 'experimental_predictive_maintenance_comparison') {
+    return <PredictiveComparisonCard result={response.experimental_comparison_result} />
+  }
 
   return (
     <div className="assistant-summary">
       <div className="assistant-summary__heading">
-        <span>{label}</span>
-        {response.invoked_capability ? (
-          <small>{outcomeLabels[response.outcome]}</small>
-        ) : null}
+        <span>{outcomeLabels[response.outcome]}</span>
       </div>
       <p>{response.message}</p>
       {response.outcome === 'context_required' ? (
