@@ -14,6 +14,12 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.document_embeddings import SentenceTransformerEmbedder
+from app.escalation import (
+    EscalationReason,
+    HandoffStatus,
+    HumanHandoffResult,
+    create_human_handoff,
+)
 from app.gemini_answer_generator import (
     GeminiAnswerGenerator,
     GeminiConfigurationError,
@@ -31,6 +37,14 @@ from app.maintenance_service import (
     VehicleNotFoundError,
     evaluate_vehicle_maintenance,
 )
+from app.orchestrator import (
+    OrchestratedCapability,
+    OrchestrationContext,
+    OrchestrationContextField,
+    OrchestrationOutcome,
+    OrchestrationResult,
+    orchestrate_user_request,
+)
 from app.predictive_maintenance_artifact import (
     ExperimentalArtifactCompatibilityError,
 )
@@ -46,6 +60,7 @@ from app.predictive_maintenance_prediction import (
 )
 from app.rag_service import RagService, prepare_rag_service
 from app.retrieval_confidence import RetrievalSupportStatus
+from app.routing import RoutingDecision, RoutingIntent
 
 RAG_TOP_K_ENVIRONMENT_VARIABLE = "RAG_TOP_K"
 RAG_MINIMUM_SIMILARITY_ENVIRONMENT_VARIABLE = "RAG_MINIMUM_SIMILARITY"
@@ -143,6 +158,56 @@ class SupportQueryResponse(BaseModel):
     sources: list[SupportSourceResponse]
 
 
+class AssistantQueryRequest(BaseModel):
+    """User message plus optional route-specific client context."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    message: Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, min_length=1),
+    ]
+    vehicle_id: int | None = Field(default=None, gt=0)
+    evaluation_date: date | None = None
+    predictive_maintenance_input: (
+        PredictiveMaintenanceComparisonRequest | None
+    ) = None
+
+
+class RoutingDecisionResponse(BaseModel):
+    """Typed API representation of the deterministic routing decision."""
+
+    intent: RoutingIntent
+    normalized_request: str
+    matched_intents: list[RoutingIntent]
+    reason: str
+
+
+class HumanHandoffResponse(BaseModel):
+    """Typed API representation of the mock escalation result."""
+
+    ticket_id: str
+    reason: EscalationReason
+    request_summary: str
+    status: HandoffStatus
+
+
+class AssistantQueryResponse(BaseModel):
+    """Structured orchestration response with capability-specific results."""
+
+    routing_decision: RoutingDecisionResponse
+    outcome: OrchestrationOutcome
+    invoked_capability: OrchestratedCapability | None
+    missing_context: list[OrchestrationContextField]
+    message: str
+    maintenance_result: MaintenanceEvaluationResponse | None
+    support_result: SupportQueryResponse | None
+    escalation_result: HumanHandoffResponse | None
+    experimental_comparison_result: (
+        PredictiveMaintenanceComparisonResponse | None
+    )
+
+
 def get_evaluation_date() -> date:
     """Provide today's date at the HTTP boundary."""
     return date.today()
@@ -208,6 +273,59 @@ def support_source_response(source: AnswerSource) -> SupportSourceResponse:
     )
 
 
+def assistant_response(result: OrchestrationResult) -> AssistantQueryResponse:
+    """Map the typed orchestrator result without flattening tool outputs."""
+    return AssistantQueryResponse(
+        routing_decision=routing_decision_response(result.routing_decision),
+        outcome=result.outcome,
+        invoked_capability=result.invoked_capability,
+        missing_context=list(result.missing_context),
+        message=result.message,
+        maintenance_result=(
+            maintenance_response(result.maintenance_result)
+            if result.maintenance_result is not None
+            else None
+        ),
+        support_result=(
+            support_response(result.support_result)
+            if result.support_result is not None
+            else None
+        ),
+        escalation_result=(
+            handoff_response(result.escalation_result)
+            if result.escalation_result is not None
+            else None
+        ),
+        experimental_comparison_result=(
+            predictive_maintenance_comparison_response(
+                result.experimental_comparison_result
+            )
+            if result.experimental_comparison_result is not None
+            else None
+        ),
+    )
+
+
+def routing_decision_response(
+    decision: RoutingDecision,
+) -> RoutingDecisionResponse:
+    return RoutingDecisionResponse(
+        intent=decision.intent,
+        normalized_request=decision.normalized_request,
+        matched_intents=list(decision.matched_intents),
+        reason=decision.reason,
+    )
+
+
+def handoff_response(result: HumanHandoffResult) -> HumanHandoffResponse:
+    return HumanHandoffResponse(
+        ticket_id=result.ticket_id,
+        reason=result.reason,
+        request_summary=result.request_summary,
+        status=result.status,
+    )
+
+
 @lru_cache(maxsize=1)
 def build_rag_service() -> RagService:
     """Prepare and cache the runtime RAG service on first use."""
@@ -266,6 +384,70 @@ def get_rag_service() -> RagService:
         ) from exc
 
 
+class RuntimeStoredMaintenanceService:
+    """Request-time adapter for the existing stored-maintenance service."""
+
+    def __call__(
+        self,
+        session: Session,
+        vehicle_id: int,
+        evaluation_date: date,
+    ) -> MaintenanceDueResult:
+        return evaluate_vehicle_maintenance(
+            session=session,
+            vehicle_id=vehicle_id,
+            evaluation_date=evaluation_date,
+        )
+
+
+class RuntimeRagService:
+    """Lazy adapter that prepares the cached RAG service only when selected."""
+
+    def answer_question(self, question: str) -> GroundedAnswer:
+        return get_rag_service().answer_question(question)
+
+
+class RuntimeEscalationService:
+    """Adapter for deterministic in-memory handoff creation."""
+
+    def __call__(
+        self,
+        user_request: str,
+        reason: EscalationReason,
+    ) -> HumanHandoffResult:
+        return create_human_handoff(user_request, reason)
+
+
+class RuntimePredictiveComparisonService:
+    """Lazy adapter that loads the cached experiment only when selected."""
+
+    def compare(
+        self,
+        feature_input: PredictiveMaintenanceFeatureInput,
+    ) -> MaintenancePredictionComparison:
+        return get_predictive_maintenance_comparison_service().compare(
+            feature_input
+        )
+
+
+def get_orchestration_maintenance_service(
+) -> RuntimeStoredMaintenanceService:
+    return RuntimeStoredMaintenanceService()
+
+
+def get_orchestration_rag_service() -> RuntimeRagService:
+    return RuntimeRagService()
+
+
+def get_orchestration_escalation_service() -> RuntimeEscalationService:
+    return RuntimeEscalationService()
+
+
+def get_orchestration_predictive_service(
+) -> RuntimePredictiveComparisonService:
+    return RuntimePredictiveComparisonService()
+
+
 def _positive_integer_environment_value(name: str, default: int) -> int:
     configured_value = os.getenv(name, str(default))
     try:
@@ -315,6 +497,97 @@ async def request_validation_exception_handler(
 def health_check() -> dict[str, str]:
     """Report whether the API process is ready to accept requests."""
     return {"status": "healthy"}
+
+
+@app.post(
+    "/assistant/query",
+    response_model=AssistantQueryResponse,
+    tags=["assistant"],
+)
+def query_assistant(
+    request: AssistantQueryRequest,
+    session: Session = Depends(get_db),
+    default_evaluation_date: date = Depends(get_evaluation_date),
+    maintenance_service: RuntimeStoredMaintenanceService = Depends(
+        get_orchestration_maintenance_service
+    ),
+    rag_service: RuntimeRagService = Depends(get_orchestration_rag_service),
+    escalation_service: RuntimeEscalationService = Depends(
+        get_orchestration_escalation_service
+    ),
+    predictive_service: RuntimePredictiveComparisonService = Depends(
+        get_orchestration_predictive_service
+    ),
+) -> AssistantQueryResponse:
+    """Expose deterministic routing and existing capabilities through one API."""
+    predictive_input = None
+    if request.predictive_maintenance_input is not None:
+        try:
+            predictive_input = PredictiveMaintenanceFeatureInput(
+                **request.predictive_maintenance_input.model_dump()
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Predictive maintenance comparison input is invalid",
+            ) from exc
+
+    context = OrchestrationContext(
+        vehicle_id=request.vehicle_id,
+        evaluation_date=request.evaluation_date or default_evaluation_date,
+        session=session,
+        predictive_maintenance_input=predictive_input,
+    )
+    try:
+        result = orchestrate_user_request(
+            request.message,
+            context,
+            maintenance_service=maintenance_service,
+            rag_service=rag_service,
+            escalation_service=escalation_service,
+            predictive_comparison_service=predictive_service,
+        )
+    except VehicleNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vehicle not found",
+        ) from exc
+    except ScheduledServiceNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Vehicle has no scheduled service record",
+        ) from exc
+    except MaintenanceServiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Maintenance evaluation could not be completed",
+        ) from exc
+    except GeminiConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Support answer service is not configured",
+        ) from exc
+    except GeminiGenerationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Support answer provider could not generate a response",
+        ) from exc
+    except (
+        FileNotFoundError,
+        ExperimentalArtifactCompatibilityError,
+        ExperimentalMaintenancePredictionError,
+    ) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Experimental maintenance comparison is unavailable",
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Assistant query could not be completed",
+        ) from exc
+
+    return assistant_response(result)
 
 
 @app.post(
