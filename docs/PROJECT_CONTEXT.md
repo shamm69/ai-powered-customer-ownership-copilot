@@ -23,9 +23,8 @@ The system aims to provide a single conversational layer that answers:
 
 "What does my car need, and when?"
 
-## Core Capabilities
+## Current Backend Capabilities
 
-The MVP includes:
 0. Data Layer
 
 - SQLite database containing synthetic:
@@ -37,51 +36,69 @@ The MVP includes:
 - The experimental ML comparison currently accepts explicit runtime features and
   is not integrated with persistence.
 
-1. RAG Retrieval
-- Uses Retrieval Augmented Generation (RAG)
-- Provides grounded answers with sources
+1. Deterministic Maintenance
 
-2. Predictive Maintenance Service
+- Uses a pure, explainable due-status evaluator.
+- Uses stored synthetic vehicle and scheduled-service data when requested.
+- Remains authoritative for MVP maintenance status.
+
+2. RAG Retrieval
+- Uses Retrieval Augmented Generation (RAG)
+- Provides confidence-gated grounded answers with source metadata.
+- Returns a deterministic insufficient-information response when retrieved
+  context is unsupported.
+
+3. Experimental Predictive Maintenance
 - Keeps the pure deterministic evaluator authoritative for MVP maintenance status
 - Uses a controlled synthetic dataset for an isolated lightweight ML experiment
 - Exposes deterministic status and experimental 90-day ML risk side by side
   without producing a hybrid or final decision
-
-3. Recommendation Engine
-- Provides explainable maintenance suggestions
-- Uses deterministic business rules
+- Requires explicit experimental/ML routing intent.
+- Does not demonstrate real-world predictive-maintenance accuracy.
 
 4. Escalation Service
-- Creates mock support tickets for:
-  - Safety concerns
-  - Customer dissatisfaction
-  - Unsupported questions
+- Creates a typed local mock human-handoff result after deterministic routing.
+- Does not integrate with a real CRM, dealer, email, or messaging service.
 
-5. Observability
-Tracks:
-- Requests
-- Routing decisions
-- Latency
-- Errors
-- Model usage when available
+5. Router and Orchestrator
+
+- Classifies a deliberately small set of intents using deterministic rules.
+- Treats unsupported and ambiguous requests as explicit outcomes instead of
+  silently invoking an arbitrary tool.
+- Invokes route-specific tools with only their required context and returns
+  structured capability-specific results.
+- Exposes the unified typed `POST /assistant/query` entry point while preserving
+  the existing direct endpoints.
+
+The frontend is planned for Phase 5. Observability, Docker, final documentation,
+and demo work remain planned for Phase 6.
 
 ## Architecture
 
-The FastAPI backend uses a central router/orchestrator to select and invoke tools and services. These capabilities are not autonomous specialized agents.
+The implemented FastAPI backend uses a deterministic router followed by an
+explicit orchestrator. It is a tool-orchestration architecture, not an
+autonomous multi-agent system.
 
-High-level flow:
+Current backend flow:
 
-User
-↓
-React Frontend
-↓
-FastAPI Backend
-↓
-Router / Orchestrator
-↓
-Tools and Services
-↓
-Response Generation
+User or API client
+-> FastAPI validation and runtime dependencies
+-> Deterministic router
+-> Explicit orchestrator
+-> Existing tools and services
+-> Structured response
+
+The routable capabilities are:
+
+1. Authoritative deterministic stored-vehicle maintenance
+2. Grounded support/RAG with confidence status and sources
+3. Deterministic local mock human escalation/handoff
+4. Explicitly experimental predictive-maintenance comparison
+
+The MVP uses no LLM intent classifier, LLM tool calling, LangChain agent,
+LangGraph workflow, or autonomous specialized agents. The predictive comparison
+cannot override deterministic maintenance and produces no combined, final, or
+recommended maintenance status.
 
 Data Layer:
 SQLite Database
@@ -89,12 +106,18 @@ SQLite Database
 - Vehicle Records
 - Service History
 
-Tools use the data layer when required:
+Stored-vehicle maintenance uses the SQLite data layer. Support/RAG uses the
+controlled document corpus. The experimental predictive comparison accepts its
+explicit eight-feature input and remains separate from persistence. Mock handoff
+creation is local and in-memory.
 
-- RAG Retrieval
-- Predictive Maintenance
-- Recommendation Engine
-- Escalation Service
+The unified `POST /assistant/query` endpoint supplements these direct endpoints:
+
+- `GET /health`
+- `POST /maintenance/evaluate`
+- `GET /vehicles/{vehicle_id}/maintenance`
+- `POST /support/query`
+- `POST /maintenance/predictive/compare`
 
 ## Constraints
 

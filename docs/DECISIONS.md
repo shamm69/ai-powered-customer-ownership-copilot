@@ -116,3 +116,44 @@ Rejected:
 
 Replacing or overriding deterministic maintenance status with the experimental
 model.
+
+---
+
+## Decision 7: Use explicit deterministic routing and structured orchestration
+
+Date:
+2026-08-18
+
+Decision:
+
+Implement Phase 4 as a small deterministic intent classifier followed by an
+explicit orchestrator that invokes existing tools and services. Dependencies and
+context remain route-specific, and orchestration returns typed structured
+results rather than flattening every capability into free text.
+
+The orchestrator preserves grounded RAG answers and source metadata, creates
+human handoffs through a deterministic local mock service, and invokes the
+predictive-maintenance comparison only for explicit experimental/ML intent. The
+experimental result remains non-authoritative and separate from deterministic
+maintenance.
+
+Expose this flow through `POST /assistant/query` while retaining the existing
+direct endpoints.
+
+Reason:
+
+The current routing vocabulary is small enough for explainable deterministic
+rules. Explicit context requirements prevent unrelated routes from inheriting
+dependencies, structured results preserve each capability's semantics, and
+ambiguous or unsupported requests can stop safely without arbitrary tool
+execution.
+
+Rejected:
+
+- Autonomous agents or a multi-agent architecture
+- LLM intent classification or LLM tool calling for MVP routing
+- LangChain or LangGraph agent frameworks without demonstrated workflow need
+- Reconstructing grounded RAG output or discarding its sources
+- A real CRM integration for the bounded mock handoff capability
+- Automatically invoking experimental ML for ordinary maintenance requests
+- Replacing direct APIs with only the unified assistant endpoint

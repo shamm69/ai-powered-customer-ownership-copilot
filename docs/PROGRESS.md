@@ -2,13 +2,53 @@
 
 ## Current Phase
 
-Phase 2.5 complete — Phase 4 not started
+Phase 4 complete — Phase 5 not started
 
 ## Current Task
 
-Phase 4 — Router and Tool Integration is next; implementation has not started.
+Phase 5 — Frontend is next; implementation has not started.
+
+## Authoritative Roadmap
+
+- Phase 0 — Environment and workflow setup
+- Phase 1 — Python, FastAPI, and deterministic domain logic
+- Phase 2 — Predictive-maintenance experiment
+- Phase 3 — RAG pipeline
+- Phase 4 — Router and tool integration
+- Phase 5 — Frontend
+- Phase 6 — Observability, Docker, documentation, and demo
+
+Historical implementation labels are retained below for accuracy. SQLite,
+persistence, and data-layer work was previously labeled Phase 2. RAG was then
+completed before the missing original predictive-maintenance scope, which was
+later completed under the temporary Phase 2.5 label. Completed work and Git
+history were not renamed or redone; Phase 2.5 is not an additional permanent
+roadmap phase.
 
 ## Completed
+
+### 2026-08-18 — Phase 4
+
+- Added a small deterministic routing classifier for stored-vehicle
+  maintenance, support knowledge, explicit experimental predictive comparison,
+  human handoff, unsupported requests, and clarification-required requests.
+- Added an explicit orchestrator that invokes existing tools and services using
+  route-specific dependencies and context rather than autonomous agents, LLM
+  intent classification, or LLM tool calling.
+- Integrated authoritative stored-vehicle deterministic maintenance, grounded
+  support RAG, deterministic mock human handoff, and the explicitly
+  experimental predictive-maintenance comparison.
+- Preserved confidence-gated RAG fallback behavior and grounded source metadata.
+- Preserved deterministic maintenance as the authoritative MVP result. The ML
+  signal requires explicit experimental intent, remains separate, and never
+  creates or overrides a final or hybrid maintenance status.
+- Added typed `POST /assistant/query` orchestration while retaining all existing
+  direct maintenance, support, predictive-comparison, and health endpoints.
+- Added cross-route integration and edge-case hardening for routing precedence,
+  missing context, tool non-invocation, RAG grounding, experimental ML
+  boundaries, escalation boundaries, and HTTP outcome semantics.
+- Completed Phase 4 with 412 backend tests passing in the project-local Python
+  3.12.10 `.venv`; `pip check` reports no broken requirements.
 
 ### 2026-08-17 — Phase 2.5
 
@@ -115,9 +155,13 @@ Phase 4 — Router and Tool Integration is next; implementation has not started.
 
 - Phase 0 completed.
 - Phase 1 completed.
-- Phase 2 completed.
-- Phase 2.5 completed.
+- Persistence/data-layer work completed under its historical Phase 2 label.
+- The original Phase 2 predictive-maintenance experiment completed under the
+  temporary Phase 2.5 implementation label.
 - Phase 3 completed.
+- Phase 4 completed.
+- Phase 5 has not started.
+- Phase 6 has not started.
 - FastAPI backend foundation is working and tested.
 - The original deterministic maintenance evaluator remains independent of persistence and unchanged.
 - Maintenance evaluation is exposed through a typed FastAPI endpoint.
@@ -128,13 +172,16 @@ Phase 4 — Router and Tool Integration is next; implementation has not started.
   predictive ML remains an experimental complementary signal only.
 - `POST /maintenance/predictive/compare` exposes both signals without a hybrid
   decision and uses an ignored local artifact with threshold `0.19`.
-- Complete backend test suite has 291 tests passing in the project-local Python
+- `POST /assistant/query` exposes deterministic routing, explicit orchestration,
+  and structured capability-specific results without replacing direct APIs.
+- Complete backend test suite has 412 tests passing in the project-local Python
   3.12.10 `.venv`.
-- Local `main` is synchronized with `origin/main` after Phase 2.5 closeout.
+- Local `main` is synchronized with `origin/main` after the Phase 4.7
+  integration-hardening commit.
 
 ## Next Steps
 
-- Begin Phase 4 — Router and Tool Integration as a separately approved task.
+- Begin Phase 5 — Frontend as a separately approved task.
 
 ## Blockers
 
