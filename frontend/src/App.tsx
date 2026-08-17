@@ -4,9 +4,17 @@ import { queryAssistant } from './api/assistant'
 import { ApiClientError } from './api/client'
 import { AppHeader } from './components/AppHeader'
 import { AssistantWorkspace } from './components/AssistantWorkspace'
+import {
+  createEmptyPredictiveExperimentDraft,
+  parsePredictiveExperimentDraft,
+  type PredictiveExperimentDraft,
+} from './components/predictiveExperiment'
 import { QuickActions } from './components/QuickActions'
 import { VehicleOverview } from './components/VehicleOverview'
-import type { AssistantQueryResponse } from './types/assistant'
+import type { AssistantQueryRequest, AssistantQueryResponse } from './types/assistant'
+
+const predictiveExperimentPrompt =
+  'Show the experimental predictive maintenance comparison.'
 
 const demoVehicle = {
   id: 1,
@@ -28,6 +36,8 @@ function App() {
     useState<AssistantQueryResponse | null>(null)
   const [assistantError, setAssistantError] = useState<string | null>(null)
   const [isAssistantLoading, setIsAssistantLoading] = useState(false)
+  const [predictiveExperimentDraft, setPredictiveExperimentDraft] =
+    useState<PredictiveExperimentDraft | null>(null)
   const assistantInputRef = useRef<HTMLTextAreaElement>(null)
   const requestInFlightRef = useRef(false)
 
@@ -36,13 +46,43 @@ function App() {
   }
 
   function selectAssistantPrompt(prompt: string) {
+    setPredictiveExperimentDraft(null)
     updateAssistantDraft(prompt)
     assistantInputRef.current?.focus()
+  }
+
+  function openPredictiveExperiment() {
+    setPredictiveExperimentDraft(createEmptyPredictiveExperimentDraft())
+    updateAssistantDraft(predictiveExperimentPrompt)
+  }
+
+  function closePredictiveExperiment() {
+    setPredictiveExperimentDraft(null)
+    if (assistantDraft === predictiveExperimentPrompt) {
+      updateAssistantDraft('')
+    }
+    assistantInputRef.current?.focus()
+  }
+
+  function updatePredictiveExperimentField(
+    field: keyof PredictiveExperimentDraft,
+    value: string,
+  ) {
+    setPredictiveExperimentDraft((currentDraft) =>
+      currentDraft ? { ...currentDraft, [field]: value } : currentDraft,
+    )
   }
 
   async function submitAssistantMessage(message = assistantDraft) {
     const normalizedMessage = message.trim()
     if (!normalizedMessage || requestInFlightRef.current) {
+      return
+    }
+
+    const predictiveInput = predictiveExperimentDraft
+      ? parsePredictiveExperimentDraft(predictiveExperimentDraft)
+      : null
+    if (predictiveExperimentDraft && !predictiveInput) {
       return
     }
 
@@ -54,11 +94,12 @@ function App() {
     setAssistantDraft('')
 
     try {
-      const result = await queryAssistant({
-        message: normalizedMessage,
-        vehicle_id: demoVehicle.id,
-      })
+      const request: AssistantQueryRequest = predictiveInput
+        ? { message: normalizedMessage, predictive_maintenance_input: predictiveInput }
+        : { message: normalizedMessage, vehicle_id: demoVehicle.id }
+      const result = await queryAssistant(request)
       setAssistantResult(result)
+      setPredictiveExperimentDraft(null)
     } catch (error) {
       setAssistantError(getAssistantErrorMessage(error))
     } finally {
@@ -88,6 +129,7 @@ function App() {
             <QuickActions
               disabled={isAssistantLoading}
               onSelect={selectAssistantPrompt}
+              onSelectExperiment={openPredictiveExperiment}
             />
           </div>
 
@@ -98,6 +140,8 @@ function App() {
             isLoading={isAssistantLoading}
             onDraftChange={updateAssistantDraft}
             onPromptSelect={selectAssistantPrompt}
+            onPredictiveExperimentDismiss={closePredictiveExperiment}
+            onPredictiveExperimentFieldChange={updatePredictiveExperimentField}
             onRetry={() => {
               if (submittedMessage) {
                 void submitAssistantMessage(submittedMessage)
@@ -106,6 +150,7 @@ function App() {
             onSubmit={() => void submitAssistantMessage()}
             response={assistantResult}
             submittedMessage={submittedMessage}
+            predictiveExperimentDraft={predictiveExperimentDraft}
           />
         </div>
       </main>

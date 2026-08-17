@@ -1,5 +1,6 @@
 import {
   CircleHelp,
+  FlaskConical,
   Headphones,
   Route,
   ShieldCheck,
@@ -11,11 +12,13 @@ interface QuickAction {
   description: string
   prompt: string
   icon: LucideIcon
+  experimental?: boolean
 }
 
 interface QuickActionsProps {
   disabled?: boolean
   onSelect: (prompt: string) => void
+  onSelectExperiment: () => void
 }
 
 const quickActions: QuickAction[] = [
@@ -43,9 +46,20 @@ const quickActions: QuickAction[] = [
     prompt: 'I want to speak with support.',
     icon: Headphones,
   },
+  {
+    label: 'Explore predictive experiment',
+    description: 'Enter synthetic comparison inputs',
+    prompt: 'Show the experimental predictive maintenance comparison.',
+    icon: FlaskConical,
+    experimental: true,
+  },
 ]
 
-export function QuickActions({ disabled = false, onSelect }: QuickActionsProps) {
+export function QuickActions({
+  disabled = false,
+  onSelect,
+  onSelectExperiment,
+}: QuickActionsProps) {
   return (
     <section className="quick-actions" aria-labelledby="quick-actions-title">
       <div className="section-heading">
@@ -57,19 +71,22 @@ export function QuickActions({ disabled = false, onSelect }: QuickActionsProps) 
       </div>
 
       <div className="quick-actions__grid">
-        {quickActions.map(({ label, description, prompt, icon: Icon }) => (
+        {quickActions.map(({ label, description, prompt, icon: Icon, experimental }) => (
           <button
-            className="quick-action"
+            className={`quick-action${experimental ? ' quick-action--experimental' : ''}`}
             disabled={disabled}
             key={label}
-            onClick={() => onSelect(prompt)}
+            onClick={() => (experimental ? onSelectExperiment() : onSelect(prompt))}
             type="button"
           >
             <span className="quick-action__icon" aria-hidden="true">
               <Icon size={19} strokeWidth={1.8} />
             </span>
             <span>
-              <strong>{label}</strong>
+              <span className="quick-action__title">
+                <strong>{label}</strong>
+                {experimental ? <em>Experimental</em> : null}
+              </span>
               <small>{description}</small>
             </span>
           </button>

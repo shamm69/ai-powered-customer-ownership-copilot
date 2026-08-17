@@ -121,6 +121,39 @@ const predictiveResponse: AssistantQueryResponse = {
   },
 }
 
+const predictiveFieldValues = [
+  ['Vehicle age (years)', 'vehicle_age_years', '6.5'],
+  ['Current odometer (km)', 'current_odometer_km', '72000'],
+  [
+    'Distance since last scheduled service (km)',
+    'distance_since_last_scheduled_service_km',
+    '7500',
+  ],
+  [
+    'Months since last scheduled service',
+    'months_since_last_scheduled_service',
+    '8',
+  ],
+  ['Service interval (km)', 'service_interval_km', '10000'],
+  ['Service interval (months)', 'service_interval_months', '12'],
+  ['Average monthly driving (km)', 'average_monthly_driving_km', '1100'],
+  ['Usage severity score (0–1)', 'usage_severity_score', '0.65'],
+] as const
+
+function openPredictiveExperiment() {
+  fireEvent.click(
+    screen.getByRole('button', { name: /explore predictive experiment/i }),
+  )
+}
+
+function completePredictiveExperimentFields() {
+  for (const [label, , value] of predictiveFieldValues) {
+    fireEvent.change(screen.getByRole('spinbutton', { name: label }), {
+      target: { value },
+    })
+  }
+}
+
 beforeEach(() => {
   queryAssistantMock.mockReset()
 })
@@ -149,6 +182,105 @@ describe('App', () => {
     const composer = screen.getByLabelText('Ask the ownership assistant')
     expect(composer).toHaveValue('Is my vehicle due for service?')
     expect(composer).toHaveFocus()
+  })
+
+  it('opens an explicitly labelled experiment with all eight empty fields', () => {
+    render(<App />)
+
+    openPredictiveExperiment()
+
+    expect(
+      screen.getByRole('heading', { name: 'Predictive-maintenance experiment' }),
+    ).toBeInTheDocument()
+    expect(screen.getAllByText(/experimental/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/not live connected-vehicle telemetry/i)).toBeInTheDocument()
+    for (const [label, fieldName] of predictiveFieldValues) {
+      expect(screen.getByRole('spinbutton', { name: label })).toHaveAttribute(
+        'name',
+        fieldName,
+      )
+      expect(screen.getByRole('spinbutton', { name: label })).toHaveValue(null)
+    }
+  })
+
+  it('prevents an incomplete experiment submission', () => {
+    render(<App />)
+
+    openPredictiveExperiment()
+
+    expect(screen.getByRole('button', { name: 'Send question' })).toBeDisabled()
+    fireEvent.submit(screen.getByRole('form', { name: 'Assistant question form' }))
+    expect(queryAssistantMock).not.toHaveBeenCalled()
+  })
+
+  it('submits exactly the eight entered experiment values without vehicle context', async () => {
+    queryAssistantMock.mockResolvedValue(predictiveResponse)
+    render(<App />)
+
+    openPredictiveExperiment()
+    completePredictiveExperimentFields()
+    fireEvent.click(screen.getByRole('button', { name: 'Send question' }))
+
+    await waitFor(() => {
+      expect(queryAssistantMock).toHaveBeenCalledWith({
+        message: 'Show the experimental predictive maintenance comparison.',
+        predictive_maintenance_input: {
+          vehicle_age_years: 6.5,
+          current_odometer_km: 72_000,
+          distance_since_last_scheduled_service_km: 7_500,
+          months_since_last_scheduled_service: 8,
+          service_interval_km: 10_000,
+          service_interval_months: 12,
+          average_monthly_driving_km: 1_100,
+          usage_severity_score: 0.65,
+        },
+      })
+    })
+    expect(
+      await screen.findByLabelText('Experimental predictive maintenance comparison'),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Predictive-maintenance experiment' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('dismisses and resets experiment mode', () => {
+    render(<App />)
+
+    openPredictiveExperiment()
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Vehicle age (years)' }), {
+      target: { value: '6.5' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Close predictive experiment' }))
+
+    expect(
+      screen.queryByRole('heading', { name: 'Predictive-maintenance experiment' }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Ask the ownership assistant')).toHaveValue('')
+    expect(screen.getByLabelText('Ask the ownership assistant')).toHaveFocus()
+  })
+
+  it('leaves experiment mode before submitting an ordinary quick action', async () => {
+    queryAssistantMock.mockResolvedValue(maintenanceResponse)
+    render(<App />)
+
+    openPredictiveExperiment()
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Vehicle age (years)' }), {
+      target: { value: '6.5' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /check service status/i }))
+
+    expect(
+      screen.queryByRole('heading', { name: 'Predictive-maintenance experiment' }),
+    ).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Send question' }))
+
+    await waitFor(() => {
+      expect(queryAssistantMock).toHaveBeenCalledWith({
+        message: 'Is my vehicle due for service?',
+        vehicle_id: 1,
+      })
+    })
   })
 
   it('does not submit blank input', () => {
@@ -248,9 +380,8 @@ describe('App', () => {
     )
     render(<App />)
 
-    fireEvent.change(screen.getByLabelText('Ask the ownership assistant'), {
-      target: { value: 'Show the experimental maintenance comparison.' },
-    })
+    openPredictiveExperiment()
+    completePredictiveExperimentFields()
     fireEvent.click(screen.getByRole('button', { name: 'Send question' }))
 
     expect(
@@ -260,6 +391,9 @@ describe('App', () => {
     expect(
       screen.queryByLabelText('Experimental predictive maintenance comparison'),
     ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Predictive-maintenance experiment' }),
+    ).toBeInTheDocument()
   })
 
   it('shows a neutral loading state and prevents duplicate submissions', async () => {
@@ -322,6 +456,13 @@ describe('App', () => {
       outcome: 'unsupported' as const,
       message: 'This request is outside the supported automotive scope.',
       expectedLabel: 'Outside available support',
+      expectedGuidance: 'Try asking about scheduled maintenance',
+    },
+    {
+      outcome: 'clarification_required' as const,
+      message: 'The request matches multiple capabilities.',
+      expectedLabel: 'Clarification needed',
+      expectedGuidance: 'Specify whether you need maintenance status',
     },
   ])('renders the $outcome orchestration outcome honestly', async (scenario) => {
     queryAssistantMock.mockResolvedValue({
@@ -329,7 +470,9 @@ describe('App', () => {
         intent:
           scenario.outcome === 'unsupported'
             ? 'unsupported'
-            : 'stored_vehicle_maintenance',
+            : scenario.outcome === 'clarification_required'
+              ? 'clarification_required'
+              : 'stored_vehicle_maintenance',
         normalized_request: 'request',
         matched_intents: [],
         reason: 'Deterministic routing result.',
@@ -353,5 +496,10 @@ describe('App', () => {
 
     expect(await screen.findByText(scenario.expectedLabel)).toBeInTheDocument()
     expect(screen.getByText(scenario.message)).toBeInTheDocument()
+    if ('expectedGuidance' in scenario && scenario.expectedGuidance) {
+      expect(screen.getByText(new RegExp(scenario.expectedGuidance, 'i'))).toBeInTheDocument()
+    } else {
+      expect(screen.getByText('A selected vehicle')).toBeInTheDocument()
+    }
   })
 })

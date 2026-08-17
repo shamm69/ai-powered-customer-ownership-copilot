@@ -12,6 +12,11 @@ import type {
   AssistantQueryResponse,
   OrchestrationOutcome,
 } from '../types/assistant'
+import { PredictiveExperimentPanel } from './PredictiveExperimentPanel'
+import {
+  parsePredictiveExperimentDraft,
+  type PredictiveExperimentDraft,
+} from './predictiveExperiment'
 import { HandoffResultCard } from './results/HandoffResultCard'
 import { MaintenanceResultCard } from './results/MaintenanceResultCard'
 import { PredictiveComparisonCard } from './results/PredictiveComparisonCard'
@@ -28,6 +33,12 @@ interface AssistantWorkspaceProps {
   onPromptSelect: (prompt: string) => void
   onSubmit: () => void
   onRetry: () => void
+  predictiveExperimentDraft: PredictiveExperimentDraft | null
+  onPredictiveExperimentDismiss: () => void
+  onPredictiveExperimentFieldChange: (
+    field: keyof PredictiveExperimentDraft,
+    value: string,
+  ) => void
 }
 
 const suggestedQuestions = [
@@ -55,8 +66,14 @@ export function AssistantWorkspace({
   onPromptSelect,
   onSubmit,
   onRetry,
+  predictiveExperimentDraft,
+  onPredictiveExperimentDismiss,
+  onPredictiveExperimentFieldChange,
 }: AssistantWorkspaceProps) {
-  const canSubmit = draft.trim().length > 0 && !isLoading
+  const predictiveInputIsValid = predictiveExperimentDraft
+    ? parsePredictiveExperimentDraft(predictiveExperimentDraft) !== null
+    : true
+  const canSubmit = draft.trim().length > 0 && predictiveInputIsValid && !isLoading
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -93,6 +110,15 @@ export function AssistantWorkspace({
       ) : (
         <AssistantWelcome />
       )}
+
+      {predictiveExperimentDraft ? (
+        <PredictiveExperimentPanel
+          disabled={isLoading}
+          draft={predictiveExperimentDraft}
+          onChange={onPredictiveExperimentFieldChange}
+          onDismiss={onPredictiveExperimentDismiss}
+        />
+      ) : null}
 
       <div className="suggested-prompts" aria-label="Suggested questions">
         {suggestedQuestions.map((question) => (
@@ -245,10 +271,37 @@ function AssistantResponseSummary({ response }: { response: AssistantQueryRespon
       </div>
       <p>{response.message}</p>
       {response.outcome === 'context_required' ? (
+        <div className="assistant-summary__context">
+          <strong>Needed to continue</strong>
+          <ul>
+            {response.missing_context.map((field) => (
+              <li key={field}>{missingContextLabels[field]}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {response.outcome === 'unsupported' ? (
         <span className="assistant-summary__hint">
-          Add the requested context and submit your question again.
+          Try asking about scheduled maintenance, vehicle support documentation, or a
+          human handoff.
+        </span>
+      ) : null}
+      {response.outcome === 'clarification_required' ? (
+        <span className="assistant-summary__hint">
+          Specify whether you need maintenance status, support guidance, the experiment,
+          or a human handoff.
         </span>
       ) : null}
     </div>
   )
 }
+
+const missingContextLabels = {
+  vehicle_id: 'A selected vehicle',
+  evaluation_date: 'An evaluation date',
+  database_session: 'The maintenance service connection',
+  rag_service: 'The support knowledge service',
+  escalation_service: 'The demo handoff service',
+  predictive_maintenance_input: 'All eight experimental input values',
+  predictive_comparison_service: 'The experimental comparison service',
+} as const
