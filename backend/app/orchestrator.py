@@ -1,4 +1,4 @@
-"""Explicit orchestration with stored maintenance as the first integrated tool."""
+"""Explicit orchestration across integrated tools and services."""
 
 from dataclasses import dataclass
 from datetime import date
@@ -7,6 +7,7 @@ from typing import Protocol
 
 from sqlalchemy.orm import Session
 
+from app.grounded_answers import GroundedAnswer
 from app.maintenance import MaintenanceDueResult
 from app.maintenance_service import evaluate_vehicle_maintenance
 from app.routing import RoutingDecision, RoutingIntent, classify_routing_intent
@@ -26,6 +27,7 @@ class OrchestratedCapability(str, Enum):
     """Capabilities the orchestrator can currently invoke."""
 
     STORED_VEHICLE_MAINTENANCE = "stored_vehicle_maintenance"
+    SUPPORT_KNOWLEDGE = "support_knowledge"
 
 
 class OrchestrationContextField(str, Enum):
@@ -34,6 +36,7 @@ class OrchestrationContextField(str, Enum):
     VEHICLE_ID = "vehicle_id"
     EVALUATION_DATE = "evaluation_date"
     DATABASE_SESSION = "database_session"
+    RAG_SERVICE = "rag_service"
 
 
 @dataclass(frozen=True)
@@ -53,6 +56,7 @@ class OrchestrationResult:
     outcome: OrchestrationOutcome
     invoked_capability: OrchestratedCapability | None
     maintenance_result: MaintenanceDueResult | None
+    support_result: GroundedAnswer | None
     missing_context: tuple[OrchestrationContextField, ...]
     message: str
 
@@ -70,13 +74,22 @@ class StoredVehicleMaintenanceService(Protocol):
         ...
 
 
+class SupportKnowledgeService(Protocol):
+    """Boundary matching the prepared RAG application service."""
+
+    def answer_question(self, question: str) -> GroundedAnswer:
+        """Answer one support question through the existing RAG pipeline."""
+        ...
+
+
 def orchestrate_user_request(
     user_message: str,
     context: OrchestrationContext | None = None,
     *,
     maintenance_service: StoredVehicleMaintenanceService | None = None,
+    rag_service: SupportKnowledgeService | None = None,
 ) -> OrchestrationResult:
-    """Classify a request and execute only stored-vehicle maintenance."""
+    """Classify a request and execute an integrated capability when available."""
     routing_decision = classify_routing_intent(user_message)
     resolved_context = context or OrchestrationContext()
 
@@ -86,7 +99,13 @@ def orchestrate_user_request(
             resolved_context,
             maintenance_service,
         )
-    return _non_maintenance_result(routing_decision)
+    if routing_decision.intent is RoutingIntent.SUPPORT_KNOWLEDGE:
+        return _execute_support_knowledge(
+            user_message,
+            routing_decision,
+            rag_service,
+        )
+    return _unexecuted_route_result(routing_decision)
 
 
 def _execute_stored_vehicle_maintenance(
@@ -101,6 +120,7 @@ def _execute_stored_vehicle_maintenance(
             outcome=OrchestrationOutcome.CONTEXT_REQUIRED,
             invoked_capability=None,
             maintenance_result=None,
+            support_result=None,
             missing_context=missing_context,
             message="Stored-vehicle maintenance requires additional context.",
         )
@@ -126,6 +146,7 @@ def _execute_stored_vehicle_maintenance(
         outcome=OrchestrationOutcome.EXECUTED,
         invoked_capability=OrchestratedCapability.STORED_VEHICLE_MAINTENANCE,
         maintenance_result=maintenance_result,
+        support_result=None,
         missing_context=(),
         message="Stored-vehicle maintenance was evaluated deterministically.",
     )
@@ -142,16 +163,38 @@ def _missing_maintenance_context(
     return tuple(field for field, value in required_values if value is None)
 
 
-def _non_maintenance_result(
+def _execute_support_knowledge(
+    user_message: str,
+    routing_decision: RoutingDecision,
+    rag_service: SupportKnowledgeService | None,
+) -> OrchestrationResult:
+    if rag_service is None:
+        return OrchestrationResult(
+            routing_decision=routing_decision,
+            outcome=OrchestrationOutcome.CONTEXT_REQUIRED,
+            invoked_capability=None,
+            maintenance_result=None,
+            support_result=None,
+            missing_context=(OrchestrationContextField.RAG_SERVICE,),
+            message="Support knowledge requires a prepared RAG service.",
+        )
+
+    support_result = rag_service.answer_question(user_message)
+    return OrchestrationResult(
+        routing_decision=routing_decision,
+        outcome=OrchestrationOutcome.EXECUTED,
+        invoked_capability=OrchestratedCapability.SUPPORT_KNOWLEDGE,
+        maintenance_result=None,
+        support_result=support_result,
+        missing_context=(),
+        message="The support question was answered from the knowledge service.",
+    )
+
+
+def _unexecuted_route_result(
     routing_decision: RoutingDecision,
 ) -> OrchestrationResult:
     intent = routing_decision.intent
-    if intent is RoutingIntent.SUPPORT_KNOWLEDGE:
-        return _unexecuted_result(
-            routing_decision,
-            OrchestrationOutcome.NOT_YET_INTEGRATED,
-            "Support knowledge routing is recognized but not yet integrated.",
-        )
     if intent is RoutingIntent.EXPERIMENTAL_PREDICTIVE_MAINTENANCE:
         return _unexecuted_result(
             routing_decision,
@@ -189,6 +232,7 @@ def _unexecuted_result(
         outcome=outcome,
         invoked_capability=None,
         maintenance_result=None,
+        support_result=None,
         missing_context=(),
         message=message,
     )

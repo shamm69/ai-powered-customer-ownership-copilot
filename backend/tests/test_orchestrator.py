@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy.orm import Session
 
+from app.grounded_answers import AnswerSource, GroundedAnswer, UNSUPPORTED_ANSWER
 from app.maintenance import MaintenanceDueResult, MaintenanceStatus
 from app.maintenance_service import (
     ScheduledServiceNotFoundError,
@@ -21,6 +22,26 @@ from app.orchestrator import (
     orchestrate_user_request,
 )
 from app.routing import RoutingIntent
+from app.retrieval_confidence import RetrievalSupportStatus
+
+
+class FakeRagService:
+    def __init__(
+        self,
+        result: GroundedAnswer | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.result = result
+        self.error = error
+        self.questions: list[str] = []
+
+    def answer_question(self, question: str) -> GroundedAnswer:
+        self.questions.append(question)
+        if self.error is not None:
+            raise self.error
+        if self.result is None:
+            raise AssertionError("Fake RAG service requires a result")
+        return self.result
 
 
 def maintenance_result(
@@ -40,6 +61,21 @@ def complete_context() -> OrchestrationContext:
         vehicle_id=42,
         evaluation_date=date(2026, 8, 18),
         session=MagicMock(spec=Session),
+    )
+
+
+def grounded_support_result() -> GroundedAnswer:
+    return GroundedAnswer(
+        answer="Check the documented tire pressure guidance.",
+        retrieval_status=RetrievalSupportStatus.SUPPORTED,
+        sources=(
+            AnswerSource(
+                source_id="tire-care.md",
+                document_title="Tire Care",
+                section_title="Tire Pressure",
+                chunk_id="tire-care.md::chunk-001",
+            ),
+        ),
     )
 
 
@@ -163,13 +199,102 @@ def test_known_maintenance_errors_propagate_unchanged(
     assert captured.value is service_error
 
 
+def test_support_route_invokes_injected_rag_service_with_original_question(
+) -> None:
+    expected_result = grounded_support_result()
+    service = FakeRagService(expected_result)
+    question = "  What DOES the tire pressure warning light mean?  "
+
+    result = orchestrate_user_request(question, rag_service=service)
+
+    assert service.questions == [question]
+    assert result.routing_decision.normalized_request == (
+        "what does the tire pressure warning light mean"
+    )
+    assert result.outcome is OrchestrationOutcome.EXECUTED
+    assert result.invoked_capability is OrchestratedCapability.SUPPORT_KNOWLEDGE
+
+
+def test_support_route_preserves_exact_grounded_result_and_sources() -> None:
+    expected_result = grounded_support_result()
+
+    result = orchestrate_user_request(
+        "What does the tire pressure warning light mean?",
+        rag_service=FakeRagService(expected_result),
+    )
+
+    assert result.support_result is expected_result
+    assert result.support_result.sources is expected_result.sources
+    assert result.support_result.sources[0].chunk_id == (
+        "tire-care.md::chunk-001"
+    )
+    assert result.maintenance_result is None
+
+
+def test_unsupported_rag_result_is_preserved_without_fallback_changes() -> None:
+    expected_result = GroundedAnswer(
+        answer=UNSUPPORTED_ANSWER,
+        retrieval_status=RetrievalSupportStatus.UNSUPPORTED,
+        sources=(),
+    )
+
+    result = orchestrate_user_request(
+        "What does the tire pressure warning light mean?",
+        rag_service=FakeRagService(expected_result),
+    )
+
+    assert result.outcome is OrchestrationOutcome.EXECUTED
+    assert result.support_result is expected_result
+    assert result.support_result.answer == UNSUPPORTED_ANSWER
+    assert result.support_result.sources == ()
+
+
+def test_missing_rag_dependency_returns_explicit_context_required_outcome(
+) -> None:
+    result = orchestrate_user_request(
+        "What does the tire pressure warning light mean?"
+    )
+
+    assert result.outcome is OrchestrationOutcome.CONTEXT_REQUIRED
+    assert result.missing_context == (OrchestrationContextField.RAG_SERVICE,)
+    assert result.invoked_capability is None
+    assert result.support_result is None
+
+
+def test_support_route_does_not_invoke_maintenance_service() -> None:
+    maintenance_service = MagicMock(
+        side_effect=AssertionError("Maintenance service must not be called")
+    )
+
+    orchestrate_user_request(
+        "What does the tire pressure warning light mean?",
+        complete_context(),
+        maintenance_service=maintenance_service,
+        rag_service=FakeRagService(grounded_support_result()),
+    )
+
+    maintenance_service.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "rag_error",
+    [ValueError("invalid RAG result"), RuntimeError("provider failure")],
+)
+def test_rag_errors_propagate_without_http_translation(
+    rag_error: Exception,
+) -> None:
+    with pytest.raises(type(rag_error)) as captured:
+        orchestrate_user_request(
+            "What does the tire pressure warning light mean?",
+            rag_service=FakeRagService(error=rag_error),
+        )
+
+    assert captured.value is rag_error
+
+
 @pytest.mark.parametrize(
     ("request_text", "expected_intent"),
     [
-        (
-            "What does the tire pressure warning light mean?",
-            RoutingIntent.SUPPORT_KNOWLEDGE,
-        ),
         (
             "Compare my maintenance status with the experimental ML model.",
             RoutingIntent.EXPERIMENTAL_PREDICTIVE_MAINTENANCE,
@@ -245,6 +370,7 @@ def test_experimental_route_cannot_create_hybrid_maintenance_result() -> None:
         "outcome",
         "invoked_capability",
         "maintenance_result",
+        "support_result",
         "missing_context",
         "message",
     }
