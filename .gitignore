@@ -37,6 +37,7 @@ Thumbs.db
 # ML artifacts
 *.pkl
 *.joblib
+backend/artifacts/predictive_maintenance/
 
 # Vector databases
 chroma_db/
