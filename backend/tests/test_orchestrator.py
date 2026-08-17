@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy.orm import Session
 
+from app.escalation import EscalationReason, HandoffStatus, HumanHandoffResult
 from app.grounded_answers import AnswerSource, GroundedAnswer, UNSUPPORTED_ANSWER
 from app.maintenance import MaintenanceDueResult, MaintenanceStatus
 from app.maintenance_service import (
@@ -44,6 +45,29 @@ class FakeRagService:
         return self.result
 
 
+class FakeEscalationService:
+    def __init__(
+        self,
+        result: HumanHandoffResult | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.result = result
+        self.error = error
+        self.calls: list[tuple[str, EscalationReason]] = []
+
+    def __call__(
+        self,
+        user_request: str,
+        reason: EscalationReason,
+    ) -> HumanHandoffResult:
+        self.calls.append((user_request, reason))
+        if self.error is not None:
+            raise self.error
+        if self.result is None:
+            raise AssertionError("Fake escalation service requires a result")
+        return self.result
+
+
 def maintenance_result(
     status: MaintenanceStatus = MaintenanceStatus.DUE_SOON,
 ) -> MaintenanceDueResult:
@@ -76,6 +100,15 @@ def grounded_support_result() -> GroundedAnswer:
                 chunk_id="tire-care.md::chunk-001",
             ),
         ),
+    )
+
+
+def handoff_result() -> HumanHandoffResult:
+    return HumanHandoffResult(
+        ticket_id="handoff-fixed-001",
+        reason=EscalationReason.ROUTED_HUMAN_HANDOFF,
+        request_summary="I want to speak to a person.",
+        status=HandoffStatus.CREATED,
     )
 
 
@@ -292,6 +325,124 @@ def test_rag_errors_propagate_without_http_translation(
     assert captured.value is rag_error
 
 
+def test_handoff_route_invokes_injected_escalation_service() -> None:
+    expected_result = handoff_result()
+    service = FakeEscalationService(expected_result)
+    user_message = "I want to speak to a person."
+
+    result = orchestrate_user_request(
+        user_message,
+        escalation_service=service,
+    )
+
+    assert service.calls == [
+        (user_message, EscalationReason.ROUTED_HUMAN_HANDOFF)
+    ]
+    assert result.outcome is OrchestrationOutcome.EXECUTED
+    assert result.invoked_capability is OrchestratedCapability.HUMAN_HANDOFF
+    assert result.escalation_result is expected_result
+
+
+def test_safety_routed_handoff_invokes_same_bounded_service() -> None:
+    service = FakeEscalationService(handoff_result())
+
+    result = orchestrate_user_request(
+        "My vehicle is unsafe to drive.",
+        escalation_service=service,
+    )
+
+    assert result.routing_decision.intent is RoutingIntent.HUMAN_HANDOFF
+    assert service.calls == [
+        (
+            "My vehicle is unsafe to drive.",
+            EscalationReason.ROUTED_HUMAN_HANDOFF,
+        )
+    ]
+    assert result.outcome is OrchestrationOutcome.EXECUTED
+
+
+def test_handoff_preserves_exact_escalation_result() -> None:
+    expected_result = handoff_result()
+
+    result = orchestrate_user_request(
+        "I want to speak to a person.",
+        escalation_service=FakeEscalationService(expected_result),
+    )
+
+    assert result.escalation_result is expected_result
+    assert result.maintenance_result is None
+    assert result.support_result is None
+
+
+def test_missing_escalation_dependency_requires_context() -> None:
+    result = orchestrate_user_request("I want to speak to a person.")
+
+    assert result.outcome is OrchestrationOutcome.CONTEXT_REQUIRED
+    assert result.missing_context == (
+        OrchestrationContextField.ESCALATION_SERVICE,
+    )
+    assert result.invoked_capability is None
+    assert result.escalation_result is None
+
+
+def test_handoff_invokes_neither_maintenance_nor_rag() -> None:
+    maintenance_service = MagicMock(
+        side_effect=AssertionError("Maintenance must not be called")
+    )
+    rag_service = FakeRagService(error=AssertionError("RAG must not be called"))
+
+    orchestrate_user_request(
+        "Please connect me to a human agent about my maintenance status.",
+        complete_context(),
+        maintenance_service=maintenance_service,
+        rag_service=rag_service,
+        escalation_service=FakeEscalationService(handoff_result()),
+    )
+
+    maintenance_service.assert_not_called()
+    assert rag_service.questions == []
+
+
+def test_escalation_error_propagates_without_http_translation() -> None:
+    service_error = RuntimeError("handoff creation failed")
+
+    with pytest.raises(RuntimeError) as captured:
+        orchestrate_user_request(
+            "I want to speak to a person.",
+            escalation_service=FakeEscalationService(error=service_error),
+        )
+
+    assert captured.value is service_error
+
+
+@pytest.mark.parametrize(
+    "request_text",
+    [
+        "Is my vehicle due for service?",
+        "What does the tire pressure warning light mean?",
+        "Give me the experimental predictive maintenance probability.",
+        "Give me a pasta recipe.",
+        "I need help with my car.",
+    ],
+)
+def test_non_handoff_routes_never_invoke_escalation_service(
+    request_text: str,
+) -> None:
+    escalation_service = MagicMock(
+        side_effect=AssertionError("Escalation must not be called")
+    )
+
+    orchestrate_user_request(
+        request_text,
+        complete_context(),
+        maintenance_service=lambda **_: maintenance_result(),
+        rag_service=FakeRagService(grounded_support_result()),
+        escalation_service=escalation_service,
+    )
+
+    escalation_service.assert_not_called()
+
+
 @pytest.mark.parametrize(
     ("request_text", "expected_intent"),
     [
@@ -299,7 +450,6 @@ def test_rag_errors_propagate_without_http_translation(
             "Compare my maintenance status with the experimental ML model.",
             RoutingIntent.EXPERIMENTAL_PREDICTIVE_MAINTENANCE,
         ),
-        ("I want to speak to a person.", RoutingIntent.HUMAN_HANDOFF),
     ],
 )
 def test_recognized_later_routes_are_not_yet_executed(
@@ -371,6 +521,7 @@ def test_experimental_route_cannot_create_hybrid_maintenance_result() -> None:
         "invoked_capability",
         "maintenance_result",
         "support_result",
+        "escalation_result",
         "missing_context",
         "message",
     }
