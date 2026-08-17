@@ -14,6 +14,14 @@ from app.maintenance_service import (
     ScheduledServiceNotFoundError,
     VehicleNotFoundError,
 )
+from app.predictive_maintenance_comparison import (
+    MaintenancePredictionComparison,
+    MaintenanceSignalRelationship,
+)
+from app.predictive_maintenance_prediction import (
+    ExperimentalMaintenancePrediction,
+    PredictiveMaintenanceFeatureInput,
+)
 from app.orchestrator import (
     OrchestratedCapability,
     OrchestrationContext,
@@ -68,6 +76,28 @@ class FakeEscalationService:
         return self.result
 
 
+class FakePredictiveComparisonService:
+    def __init__(
+        self,
+        result: MaintenancePredictionComparison | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.result = result
+        self.error = error
+        self.inputs: list[PredictiveMaintenanceFeatureInput] = []
+
+    def compare(
+        self,
+        feature_input: PredictiveMaintenanceFeatureInput,
+    ) -> MaintenancePredictionComparison:
+        self.inputs.append(feature_input)
+        if self.error is not None:
+            raise self.error
+        if self.result is None:
+            raise AssertionError("Fake comparison service requires a result")
+        return self.result
+
+
 def maintenance_result(
     status: MaintenanceStatus = MaintenanceStatus.DUE_SOON,
 ) -> MaintenanceDueResult:
@@ -109,6 +139,41 @@ def handoff_result() -> HumanHandoffResult:
         reason=EscalationReason.ROUTED_HUMAN_HANDOFF,
         request_summary="I want to speak to a person.",
         status=HandoffStatus.CREATED,
+    )
+
+
+def predictive_feature_input() -> PredictiveMaintenanceFeatureInput:
+    return PredictiveMaintenanceFeatureInput(
+        vehicle_age_years=6.0,
+        current_odometer_km=72_000.0,
+        distance_since_last_scheduled_service_km=7_500.0,
+        months_since_last_scheduled_service=8.0,
+        service_interval_km=10_000.0,
+        service_interval_months=12.0,
+        average_monthly_driving_km=1_100.0,
+        usage_severity_score=0.65,
+    )
+
+
+def predictive_comparison_result() -> MaintenancePredictionComparison:
+    return MaintenancePredictionComparison(
+        deterministic_result=maintenance_result(MaintenanceStatus.DUE_SOON),
+        experimental_result=ExperimentalMaintenancePrediction(
+            maintenance_needed_within_90_days_prediction=1,
+            positive_class_probability=0.64,
+            threshold=0.19,
+            experimental=True,
+            artifact_schema_version=1,
+        ),
+        deterministic_binary_signal=1,
+        experimental_ml_binary_signal=1,
+        relationship=MaintenanceSignalRelationship.AGREE_POSITIVE,
+    )
+
+
+def predictive_context() -> OrchestrationContext:
+    return OrchestrationContext(
+        predictive_maintenance_input=predictive_feature_input()
     )
 
 
@@ -415,6 +480,149 @@ def test_escalation_error_propagates_without_http_translation() -> None:
     assert captured.value is service_error
 
 
+def test_explicit_experimental_route_invokes_comparison_service() -> None:
+    expected_result = predictive_comparison_result()
+    service = FakePredictiveComparisonService(expected_result)
+    context = predictive_context()
+
+    result = orchestrate_user_request(
+        "Compare my maintenance status with the experimental ML model.",
+        context,
+        predictive_comparison_service=service,
+    )
+
+    assert service.inputs == [context.predictive_maintenance_input]
+    assert service.inputs[0] is context.predictive_maintenance_input
+    assert result.routing_decision.intent is (
+        RoutingIntent.EXPERIMENTAL_PREDICTIVE_MAINTENANCE
+    )
+    assert result.outcome is OrchestrationOutcome.EXECUTED
+    assert result.invoked_capability is (
+        OrchestratedCapability.EXPERIMENTAL_PREDICTIVE_MAINTENANCE_COMPARISON
+    )
+
+
+def test_exact_experimental_comparison_result_is_preserved() -> None:
+    expected_result = predictive_comparison_result()
+
+    result = orchestrate_user_request(
+        "Give me the experimental predictive maintenance probability.",
+        predictive_context(),
+        predictive_comparison_service=FakePredictiveComparisonService(
+            expected_result
+        ),
+    )
+
+    assert result.experimental_comparison_result is expected_result
+    assert result.maintenance_result is None
+    assert result.support_result is None
+    assert result.escalation_result is None
+
+
+def test_missing_predictive_comparison_service_requires_context() -> None:
+    result = orchestrate_user_request(
+        "Give me the experimental predictive maintenance probability.",
+        predictive_context(),
+    )
+
+    assert result.outcome is OrchestrationOutcome.CONTEXT_REQUIRED
+    assert result.missing_context == (
+        OrchestrationContextField.PREDICTIVE_COMPARISON_SERVICE,
+    )
+    assert result.experimental_comparison_result is None
+
+
+def test_missing_predictive_input_requires_context_without_service_call() -> None:
+    service = FakePredictiveComparisonService(predictive_comparison_result())
+
+    result = orchestrate_user_request(
+        "Give me the experimental predictive maintenance probability.",
+        predictive_comparison_service=service,
+    )
+
+    assert service.inputs == []
+    assert result.outcome is OrchestrationOutcome.CONTEXT_REQUIRED
+    assert result.missing_context == (
+        OrchestrationContextField.PREDICTIVE_MAINTENANCE_INPUT,
+    )
+
+
+def test_no_predictive_input_or_dependency_is_defaulted_or_fabricated() -> None:
+    result = orchestrate_user_request(
+        "Give me the experimental predictive maintenance probability."
+    )
+
+    assert result.outcome is OrchestrationOutcome.CONTEXT_REQUIRED
+    assert result.missing_context == (
+        OrchestrationContextField.PREDICTIVE_MAINTENANCE_INPUT,
+        OrchestrationContextField.PREDICTIVE_COMPARISON_SERVICE,
+    )
+    assert result.invoked_capability is None
+
+
+def test_ordinary_maintenance_never_invokes_predictive_comparison() -> None:
+    comparison_service = FakePredictiveComparisonService(
+        error=AssertionError("Experimental comparison must not be called")
+    )
+
+    result = orchestrate_user_request(
+        "Is my vehicle due for service?",
+        replace(
+            complete_context(),
+            predictive_maintenance_input=predictive_feature_input(),
+        ),
+        maintenance_service=lambda **_: maintenance_result(),
+        predictive_comparison_service=comparison_service,
+    )
+
+    assert comparison_service.inputs == []
+    assert result.invoked_capability is (
+        OrchestratedCapability.STORED_VEHICLE_MAINTENANCE
+    )
+    assert result.maintenance_result is not None
+
+
+def test_experimental_route_invokes_no_other_capability() -> None:
+    maintenance_service = MagicMock(
+        side_effect=AssertionError("Stored maintenance must not be called")
+    )
+    rag_service = FakeRagService(error=AssertionError("RAG must not be called"))
+    escalation_service = MagicMock(
+        side_effect=AssertionError("Escalation must not be called")
+    )
+
+    result = orchestrate_user_request(
+        "Give me the experimental predictive maintenance probability.",
+        predictive_context(),
+        maintenance_service=maintenance_service,
+        rag_service=rag_service,
+        escalation_service=escalation_service,
+        predictive_comparison_service=FakePredictiveComparisonService(
+            predictive_comparison_result()
+        ),
+    )
+
+    maintenance_service.assert_not_called()
+    assert rag_service.questions == []
+    escalation_service.assert_not_called()
+    assert result.outcome is OrchestrationOutcome.EXECUTED
+
+
+def test_predictive_comparison_error_propagates_without_http_translation() -> None:
+    service_error = RuntimeError("experimental comparison failed")
+
+    with pytest.raises(RuntimeError) as captured:
+        orchestrate_user_request(
+            "Give me the experimental predictive maintenance probability.",
+            predictive_context(),
+            predictive_comparison_service=FakePredictiveComparisonService(
+                error=service_error
+            ),
+        )
+
+    assert captured.value is service_error
+
+
 @pytest.mark.parametrize(
     "request_text",
     [
@@ -441,27 +649,6 @@ def test_non_handoff_routes_never_invoke_escalation_service(
     )
 
     escalation_service.assert_not_called()
-
-
-@pytest.mark.parametrize(
-    ("request_text", "expected_intent"),
-    [
-        (
-            "Compare my maintenance status with the experimental ML model.",
-            RoutingIntent.EXPERIMENTAL_PREDICTIVE_MAINTENANCE,
-        ),
-    ],
-)
-def test_recognized_later_routes_are_not_yet_executed(
-    request_text: str,
-    expected_intent: RoutingIntent,
-) -> None:
-    result = orchestrate_user_request(request_text)
-
-    assert result.routing_decision.intent is expected_intent
-    assert result.outcome is OrchestrationOutcome.NOT_YET_INTEGRATED
-    assert result.invoked_capability is None
-    assert result.maintenance_result is None
 
 
 def test_unsupported_route_has_explicit_outcome() -> None:
@@ -505,16 +692,21 @@ def test_non_maintenance_routes_never_invoke_maintenance_service(
 
 
 def test_experimental_route_cannot_create_hybrid_maintenance_result() -> None:
+    expected_comparison = predictive_comparison_result()
     result = orchestrate_user_request(
         "Give me the experimental predictive maintenance probability.",
-        complete_context(),
+        predictive_context(),
         maintenance_service=MagicMock(
             side_effect=AssertionError("Deterministic service must not run")
         ),
+        predictive_comparison_service=FakePredictiveComparisonService(
+            expected_comparison
+        ),
     )
 
-    assert result.outcome is OrchestrationOutcome.NOT_YET_INTEGRATED
+    assert result.outcome is OrchestrationOutcome.EXECUTED
     assert result.maintenance_result is None
+    assert result.experimental_comparison_result is expected_comparison
     assert set(field.name for field in fields(OrchestrationResult)) == {
         "routing_decision",
         "outcome",
@@ -522,6 +714,7 @@ def test_experimental_route_cannot_create_hybrid_maintenance_result() -> None:
         "maintenance_result",
         "support_result",
         "escalation_result",
+        "experimental_comparison_result",
         "missing_context",
         "message",
     }
