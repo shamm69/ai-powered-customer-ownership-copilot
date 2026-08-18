@@ -194,3 +194,35 @@ Rejected:
 - Hiding the synthetic-data, failed-gate, or local mock-handoff limitations
 - Adding React Router, Redux, a large UI framework, or a data-fetching framework
   without demonstrated need
+
+---
+
+## Decision 9: Bootstrap deterministic local runtime state explicitly
+
+Date:
+2026-08-18
+
+Decision:
+
+Use a small environment-driven configuration boundary and FastAPI lifespan
+bootstrap for fresh runtimes. Anchor default SQLite and generated-artifact paths
+to the backend directory, create missing tables, apply the existing idempotent
+demo seed, and reuse or reconstruct the frozen experimental predictive artifact
+before accepting requests. Configure CORS from exact allowed origins with safe
+local defaults, no wildcard production default, and no credentials.
+
+Reason:
+
+A fresh container or cloud filesystem must not depend on files generated on a
+developer machine or on its process working directory. Explicit startup
+preparation makes failures visible, preserves deterministic seed and experiment
+semantics, and keeps deployment configuration understandable without adding a
+settings framework, database migration platform, or model registry.
+
+Rejected:
+
+- Committing runtime SQLite databases or generated model binaries
+- Silently changing prediction behavior when an artifact is missing
+- Replacing SQLite or adding a large configuration framework for this phase
+- Permissive wildcard CORS or browser credential support that the product does
+  not require

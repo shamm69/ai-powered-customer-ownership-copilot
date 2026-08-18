@@ -1,5 +1,7 @@
 """Application entry point for the Customer Ownership Copilot API."""
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import date
 from functools import lru_cache
 from math import isfinite
@@ -61,6 +63,11 @@ from app.predictive_maintenance_prediction import (
 from app.rag_service import RagService, prepare_rag_service
 from app.retrieval_confidence import RetrievalSupportStatus
 from app.routing import RoutingDecision, RoutingIntent
+from app.runtime_bootstrap import initialize_runtime
+from app.runtime_configuration import (
+    configure_cors,
+    get_predictive_artifact_directory,
+)
 
 RAG_TOP_K_ENVIRONMENT_VARIABLE = "RAG_TOP_K"
 RAG_MINIMUM_SIMILARITY_ENVIRONMENT_VARIABLE = "RAG_MINIMUM_SIMILARITY"
@@ -349,7 +356,9 @@ def build_rag_service() -> RagService:
 def build_predictive_maintenance_comparison_service(
 ) -> MaintenancePredictionComparisonService:
     """Load and cache the existing experimental comparison capability."""
-    return load_default_maintenance_prediction_comparison_service()
+    return load_default_maintenance_prediction_comparison_service(
+        get_predictive_artifact_directory()
+    )
 
 
 def get_predictive_maintenance_comparison_service(
@@ -469,10 +478,20 @@ def _similarity_environment_value(name: str, default: float) -> float:
         raise ValueError(f"{name} must be between -1.0 and 1.0")
     return value
 
+
+@asynccontextmanager
+async def application_lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Prepare fresh runtime state before accepting requests."""
+    initialize_runtime()
+    yield
+
+
 app = FastAPI(
     title="Customer Ownership Copilot API",
     version="0.1.0",
+    lifespan=application_lifespan,
 )
+configure_cors(app)
 
 
 @app.exception_handler(RequestValidationError)

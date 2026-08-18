@@ -102,6 +102,14 @@ class ExperimentalArtifactPaths:
     metadata_path: Path
 
 
+@dataclass(frozen=True)
+class ExperimentalArtifactPreparation:
+    """A validated artifact plus whether this operation reconstructed it."""
+
+    artifact: ExperimentalMaintenanceArtifact
+    created: bool
+
+
 def build_default_experimental_maintenance_artifact(
 ) -> ExperimentalMaintenanceArtifact:
     """Reproduce the fixed dataset, split, and training-only fitted pipeline."""
@@ -216,6 +224,30 @@ def load_experimental_maintenance_artifact(
     return ExperimentalMaintenanceArtifact(
         pipeline=pipeline,
         metadata=metadata,
+    )
+
+
+def prepare_experimental_maintenance_artifact(
+    artifact_directory: Path = DEFAULT_ARTIFACT_DIRECTORY,
+) -> ExperimentalArtifactPreparation:
+    """Reuse a valid artifact pair or reconstruct the frozen experiment."""
+    paths = ExperimentalArtifactPaths(
+        model_path=artifact_directory / MODEL_ARTIFACT_FILENAME,
+        metadata_path=artifact_directory / METADATA_FILENAME,
+    )
+    if not paths.model_path.exists() and not paths.metadata_path.exists():
+        artifact = build_default_experimental_maintenance_artifact()
+        save_experimental_maintenance_artifact(artifact, artifact_directory)
+        return ExperimentalArtifactPreparation(
+            artifact=load_experimental_maintenance_artifact(
+                artifact_directory
+            ),
+            created=True,
+        )
+
+    return ExperimentalArtifactPreparation(
+        artifact=load_experimental_maintenance_artifact(artifact_directory),
+        created=False,
     )
 
 

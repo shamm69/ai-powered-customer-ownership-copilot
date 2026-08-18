@@ -2,11 +2,12 @@
 
 ## Current Phase
 
-Phase 5 complete — Phase 6 not started
+Phase 6 in progress — deployment-readiness foundation complete
 
 ## Current Task
 
-Phase 5 — Frontend closeout is complete. Phase 6 has not started.
+Phase 6.1 — Deployment-readiness foundation is complete. Dockerization and
+deployment have not started.
 
 ## Authoritative Roadmap
 
@@ -26,6 +27,26 @@ history were not renamed or redone; Phase 2.5 is not an additional permanent
 roadmap phase.
 
 ## Completed
+
+### 2026-08-18 — Phase 6.1
+
+- Added small environment-driven runtime configuration for the SQLite database
+  path, generated predictive-artifact directory, and exact allowed frontend
+  origins while preserving convenient local defaults.
+- Added FastAPI lifespan preparation that creates missing database tables,
+  applies the existing deterministic idempotent demo seed, and fails startup
+  clearly if essential initialization cannot complete.
+- Added explicit predictive-artifact preparation that reuses an existing valid
+  artifact pair or reconstructs the frozen experimental pipeline and metadata
+  when both files are absent. The `0.19` threshold, feature order, failed
+  useful-value gate, and deterministic MVP authority remain unchanged.
+- Added restricted FastAPI CORS middleware with exact configured origins, no
+  wildcard production default, and no credential support.
+- Kept runtime SQLite databases and generated model artifacts out of source
+  control.
+- Completed the bounded foundation with 428 backend tests passing in the
+  project-local Python 3.13.5 `.venv`; `pip check` reports no broken
+  requirements. Phase 6 remains in progress.
 
 ### 2026-08-18 — Phase 5
 
@@ -199,7 +220,8 @@ roadmap phase.
 - Phase 3 completed.
 - Phase 4 completed.
 - Phase 5 completed.
-- Phase 6 has not started.
+- Phase 6 is in progress; the Phase 6.1 deployment-readiness foundation is
+  complete, while Dockerization and deployment have not started.
 - FastAPI backend foundation is working and tested.
 - The original deterministic maintenance evaluator remains independent of persistence and unchanged.
 - Maintenance evaluation is exposed through a typed FastAPI endpoint.
@@ -212,7 +234,7 @@ roadmap phase.
   decision and uses an ignored local artifact with threshold `0.19`.
 - `POST /assistant/query` exposes deterministic routing, explicit orchestration,
   and structured capability-specific results without replacing direct APIs.
-- Complete backend test suite has 412 tests passing in the repaired
+- Complete backend test suite has 428 tests passing in the repaired
   project-local Python 3.13.5 `.venv`; `pip check` is clean.
 - Complete frontend suite has 38 tests passing, with typecheck, lint, and the
   Vite production build also passing.
@@ -222,8 +244,7 @@ roadmap phase.
 
 ## Next Steps
 
-- Begin Phase 6 — Observability, Docker, documentation, and demo only as a
-  separately approved task.
+- Continue Phase 6 only through the next separately approved bounded task.
 
 ## Blockers
 

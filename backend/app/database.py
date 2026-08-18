@@ -5,7 +5,10 @@ from collections.abc import Iterator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-DATABASE_URL = "sqlite:///./customer_ownership.db"
+from app.runtime_configuration import get_database_path
+
+DATABASE_PATH = get_database_path()
+DATABASE_URL = f"sqlite+pysqlite:///{DATABASE_PATH.as_posix()}"
 
 engine = create_engine(
     DATABASE_URL,

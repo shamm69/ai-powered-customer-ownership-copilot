@@ -34,6 +34,9 @@ Thumbs.db
 # Logs
 *.log
 
+# Runtime database
+backend/customer_ownership.db
+
 # ML artifacts
 *.pkl
 *.joblib
