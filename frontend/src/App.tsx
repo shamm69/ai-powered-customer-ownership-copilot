@@ -23,9 +23,9 @@ const predictiveExperimentPrompt =
 
 const demoVehicle = {
   id: 1,
-  ownerName: 'Avery Singh',
+  ownerName: 'Shayan',
   manufacturer: 'Aster Motors',
-  model: 'Comet',
+  model: 'Aurelia S',
   modelYear: 2023,
   currentOdometerKm: 12_500,
   serviceIntervalKm: 10_000,
@@ -156,7 +156,7 @@ function App() {
             <h1 id="dashboard-title">Your ownership overview.</h1>
           </div>
           <p className="dashboard__intro-copy">
-            Your Aster Motors Comet, service information, and ownership support in one
+            Your Aster Motors Aurelia S, service information, and ownership support in one
             trusted workspace.
           </p>
         </section>
@@ -221,7 +221,7 @@ function getAssistantErrorMessage(error: unknown): string {
     return 'Something unexpected happened. Please try your request again.'
   }
   if (error.kind === 'network_error') {
-    return 'The assistant could not reach the backend service. Check that it is running and try again.'
+    return 'Ownership services are taking longer to respond. They may be waking up—please wait a moment and try again.'
   }
   if (error.kind === 'invalid_response') {
     return 'The assistant received an unexpected response. Please try again.'

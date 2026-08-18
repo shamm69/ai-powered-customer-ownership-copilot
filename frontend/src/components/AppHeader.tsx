@@ -27,7 +27,7 @@ export function AppHeader() {
         <span className="header-divider" aria-hidden="true" />
         <span className="owner-chip">
           <CircleUserRound size={18} aria-hidden="true" />
-          Avery Singh
+          Shayan
         </span>
       </div>
     </header>

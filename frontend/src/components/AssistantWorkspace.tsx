@@ -7,7 +7,7 @@ import {
   RefreshCw,
   Sparkles,
 } from 'lucide-react'
-import type { KeyboardEvent, RefObject } from 'react'
+import { useEffect, useRef, type KeyboardEvent, type RefObject } from 'react'
 import type {
   AssistantQueryResponse,
   OrchestrationOutcome,
@@ -165,6 +165,12 @@ function AssistantWelcome() {
         Check scheduled maintenance, understand what service to consider next, search
         the support guide, or ask for human help.
       </p>
+      <ul className="assistant-capabilities" aria-label="Available ownership help">
+        <li>Maintenance status</li>
+        <li>Service recommendations</li>
+        <li>Warning-light guidance</li>
+        <li>Human help</li>
+      </ul>
     </div>
   )
 }
@@ -184,6 +190,22 @@ function AssistantExchange({
   isLoading,
   onRetry,
 }: AssistantExchangeProps) {
+  const responseRef = useRef<HTMLDivElement>(null)
+  const loadingPresentation = getLoadingPresentation(submittedMessage)
+
+  useEffect(() => {
+    if (isLoading || (!response && !errorMessage)) {
+      return
+    }
+    const prefersReducedMotion =
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+    responseRef.current?.scrollIntoView?.({
+      behavior: prefersReducedMotion ? 'auto' : 'smooth',
+      block: 'nearest',
+    })
+    responseRef.current?.focus({ preventScroll: true })
+  }, [errorMessage, isLoading, response])
+
   return (
     <div className="assistant-exchange" aria-live="polite">
       <div className="user-request">
@@ -191,13 +213,22 @@ function AssistantExchange({
         <p>{submittedMessage}</p>
       </div>
 
-      <div className="assistant-response">
+      <div
+        aria-label="Assistant result"
+        className="assistant-response"
+        ref={responseRef}
+        tabIndex={-1}
+      >
         {isLoading ? (
           <div className="assistant-loading" role="status">
             <LoaderCircle className="spinning" size={22} aria-hidden="true" />
             <div>
-              <strong>Working on your request…</strong>
-              <span>The assistant is connecting to the right ownership capability.</span>
+              <strong>{loadingPresentation.title}</strong>
+              <span>{loadingPresentation.detail}</span>
+              <div className="assistant-loading__skeleton" aria-hidden="true">
+                <i />
+                <i />
+              </div>
             </div>
           </div>
         ) : null}
@@ -220,6 +251,48 @@ function AssistantExchange({
       </div>
     </div>
   )
+}
+
+function getLoadingPresentation(message: string) {
+  const normalizedMessage = message.toLowerCase()
+  if (normalizedMessage.includes('warning light')) {
+    return {
+      title: 'Searching trusted ownership guidance…',
+      detail: 'Reviewing the available support documentation and sources.',
+    }
+  }
+  if (
+    normalizedMessage.includes('what service') ||
+    normalizedMessage.includes('long trip') ||
+    normalizedMessage.includes('recommend')
+  ) {
+    return {
+      title: 'Preparing your service recommendation…',
+      detail: 'Checking scheduled-service context and the available demo rules.',
+    }
+  }
+  if (
+    normalizedMessage.includes('due for service') ||
+    normalizedMessage.includes('maintenance status')
+  ) {
+    return {
+      title: 'Checking your vehicle status…',
+      detail: 'Reviewing the selected vehicle and its scheduled-service intervals.',
+    }
+  }
+  if (
+    normalizedMessage.includes('human') ||
+    normalizedMessage.includes('speak with support')
+  ) {
+    return {
+      title: 'Preparing your support handoff…',
+      detail: 'Creating a clearly labelled demo support reference.',
+    }
+  }
+  return {
+    title: 'Connecting to ownership services…',
+    detail: 'This can take a little longer while the demo service wakes up.',
+  }
 }
 
 function AssistantResponseSummary({ response }: { response: AssistantQueryResponse }) {

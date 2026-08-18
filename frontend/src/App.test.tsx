@@ -201,8 +201,10 @@ describe('App', () => {
     render(<App />)
 
     expect(
-      screen.getByRole('heading', { name: 'Aster Motors Comet' }),
+      screen.getByRole('heading', { name: 'Aster Motors Aurelia S' }),
     ).toBeInTheDocument()
+    expect(screen.getByText('Shayan')).toBeInTheDocument()
+    expect(screen.getByText(/Owned by Shayan/)).toBeInTheDocument()
     expect(screen.getByText('12,500 km')).toBeInTheDocument()
     expect(screen.getByText('15 Jul 2026')).toBeInTheDocument()
     expect(
@@ -210,6 +212,10 @@ describe('App', () => {
         name: 'How can I help with your vehicle today?',
       }),
     ).toBeInTheDocument()
+    expect(screen.getByText('Maintenance status')).toBeInTheDocument()
+    expect(screen.getByText('Service recommendations')).toBeInTheDocument()
+    expect(screen.getByText('Warning-light guidance')).toBeInTheDocument()
+    expect(screen.getByText('Human help')).toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: 'Page sections' })).toBeInTheDocument()
     expect(screen.getByText('Automotive customer-ownership proof of concept')).toBeInTheDocument()
   })
@@ -378,6 +384,7 @@ describe('App', () => {
     expect(
       await screen.findByLabelText('Authoritative scheduled maintenance result'),
     ).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByLabelText('Assistant result')).toHaveFocus())
     expect(screen.getByRole('heading', { name: 'Due Soon' })).toBeInTheDocument()
     expect(screen.getByText('1,900 km')).toBeInTheDocument()
     expect(
@@ -476,7 +483,12 @@ describe('App', () => {
     fireEvent.submit(form)
     fireEvent.submit(form)
 
-    expect(screen.getByText('Working on your request…')).toBeInTheDocument()
+    expect(
+      screen.getByText('Searching trusted ownership guidance…'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('Reviewing the available support documentation and sources.'),
+    ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Request in progress' })).toBeDisabled()
     expect(queryAssistantMock).toHaveBeenCalledTimes(1)
 
@@ -502,7 +514,7 @@ describe('App', () => {
 
     expect(
       await screen.findByText(
-        'The assistant could not reach the backend service. Check that it is running and try again.',
+        'Ownership services are taking longer to respond. They may be waking up—please wait a moment and try again.',
       ),
     ).toBeInTheDocument()
 
