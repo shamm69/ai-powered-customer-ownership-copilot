@@ -1,131 +1,146 @@
-# Agentic Customer Ownership Copilot
+# Project Context
 
-## Overview
+## Purpose
 
-Agentic Customer Ownership Copilot is a proof-of-concept AI assistant for automotive customer support.
+Agentic Customer Ownership Copilot is a deployed automotive ownership proof of
+concept. It gives a vehicle owner one structured interface for scheduled
+maintenance status, bounded service recommendations, grounded documentation
+support, and a mock human handoff. A separate Technical Preview demonstrates an
+experimental predictive-maintenance comparison without presenting ML as the
+customer's maintenance authority.
 
-The system helps vehicle owners understand:
-- Vehicle information
-- Maintenance requirements
-- Service recommendations
-- Support documentation
-- Escalation options
+The product addresses fragmented ownership information: service history,
+maintenance intervals, manuals, FAQs, and support channels typically require
+separate interactions. The project explores how an explicit orchestrator can
+unify those capabilities while preserving their different meanings and failure
+boundaries.
 
-## Problem Statement
+## Final system
 
-Vehicle owners currently interact with disconnected sources such as:
-- Owner manuals
-- FAQs
-- Service records
-- Customer support channels
+### Customer portal
 
-The system aims to provide a single conversational layer that answers:
+- Responsive React, Vite, and TypeScript single-page ownership workspace
+- Seeded demo customer and selected vehicle context
+- Typed native-fetch client with runtime response validation
+- Customer quick actions aligned with deterministic backend routing
+- Dedicated cards for maintenance, recommendations, grounded support, and mock
+  handoff
+- Secondary Technical Preview for manual experimental ML inputs and comparison
+- Honest loading, context-required, clarification, unsupported, and provider
+  failure states
 
-"What does my car need, and when?"
+### Backend
 
-## Current Capabilities
-
-0. Data Layer
-
-- SQLite database containing synthetic:
-  - Customer records
-  - Vehicle information
-  - Service history
-
-- Supplies stored vehicle/service data to deterministic maintenance evaluation.
-- The experimental ML comparison currently accepts explicit runtime features and
-  is not integrated with persistence.
-
-1. Deterministic Maintenance
-
-- Uses a pure, explainable due-status evaluator.
-- Uses stored synthetic vehicle and scheduled-service data when requested.
-- Remains authoritative for MVP maintenance status.
-
-2. RAG Retrieval
-- Uses Retrieval Augmented Generation (RAG)
-- Provides confidence-gated grounded answers with source metadata.
-- Returns a deterministic insufficient-information response when retrieved
-  context is unsupported.
-
-3. Experimental Predictive Maintenance
-- Keeps the pure deterministic evaluator authoritative for MVP maintenance status
-- Uses a controlled synthetic dataset for an isolated lightweight ML experiment
-- Exposes deterministic status and experimental 90-day ML risk side by side
-  without producing a hybrid or final decision
-- Requires explicit experimental/ML routing intent.
-- Does not demonstrate real-world predictive-maintenance accuracy.
-
-4. Escalation Service
-- Creates a typed local mock human-handoff result after deterministic routing.
-- Does not integrate with a real CRM, dealer, email, or messaging service.
-
-5. Router and Orchestrator
-
-- Classifies a deliberately small set of intents using deterministic rules.
-- Treats unsupported and ambiguous requests as explicit outcomes instead of
-  silently invoking an arbitrary tool.
-- Invokes route-specific tools with only their required context and returns
-  structured capability-specific results.
-- Exposes the unified typed `POST /assistant/query` entry point while preserving
-  the existing direct endpoints.
-
-6. React Frontend
-
-- Uses React, Vite, and TypeScript for one responsive automotive ownership
-  dashboard and embedded assistant experience.
-- Connects to `POST /assistant/query` through a typed native-fetch client and a
-  Vite development proxy.
-- Presents authoritative maintenance, grounded support sources, local mock
-  handoffs, and experimental predictive comparison results as distinct typed
-  experiences rather than raw JSON or generic chat text.
-- Includes explicit synthetic-data, failed-gate, non-override, and mock-service
-  disclosures wherever those boundaries matter.
-
-Phase 5 frontend work is complete. Observability, Docker, final documentation,
-and demo work remain planned for Phase 6.
+- FastAPI and Pydantic HTTP boundary
+- Deterministic intent classifier with explicit ambiguity and unsupported states
+- Explicit orchestrator with route-specific context and dependencies
+- SQLAlchemy/SQLite seeded demo persistence
+- Pure distance- and time-based scheduled-maintenance evaluator
+- Deterministic service recommendation rules
+- Confidence-gated local retrieval plus Gemini grounded answer generation
+- Local mock escalation result
+- Side-by-side deterministic and experimental predictive comparison
+- Fresh-runtime database/artifact bootstrap, exact-origin CORS, and JSON logging
 
 ## Architecture
 
-The implemented FastAPI backend uses a deterministic router followed by an
-explicit orchestrator. It is a tool-orchestration architecture, not an
-autonomous multi-agent system.
-
-Current application flow:
-
+```text
 User
--> Responsive React ownership dashboard and assistant
--> Typed frontend API client and Vite development proxy
+-> React/Vite Customer Ownership Portal
+-> POST /assistant/query
 -> FastAPI validation and runtime dependencies
--> Deterministic router
--> Explicit orchestrator
--> Existing tools and services
--> Structured response
+-> Deterministic Router
+-> Explicit Orchestrator
+-> One selected capability
+-> Typed structured result
+-> Capability-specific frontend presentation
+```
 
-The routable capabilities are:
+The router/orchestrator is intentionally not an autonomous multi-agent design.
+There is no LLM intent classifier, LLM tool calling, LangChain agent, or
+LangGraph workflow. Gemini is isolated to grounded answer generation after
+deterministic retrieval and confidence gating.
 
-1. Authoritative deterministic stored-vehicle maintenance
-2. Grounded support/RAG with confidence status and sources
-3. Deterministic local mock human escalation/handoff
-4. Explicitly experimental predictive-maintenance comparison
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the full component and deployment
+diagrams.
 
-The MVP uses no LLM intent classifier, LLM tool calling, LangChain agent,
-LangGraph workflow, or autonomous specialized agents. The predictive comparison
-cannot override deterministic maintenance and produces no combined, final, or
-recommended maintenance status.
+## Capability boundaries
 
-Data Layer:
-SQLite Database
-- Customer Records
-- Vehicle Records
-- Service History
+### Authoritative scheduled maintenance
 
-Stored-vehicle maintenance uses the SQLite data layer. Support/RAG uses the
-controlled document corpus. The experimental predictive comparison accepts its
-explicit eight-feature input and remains separate from persistence. Mock handoff
-creation is local and in-memory.
+Stored vehicle and latest scheduled-service data feed the unchanged pure
+maintenance evaluator. Distance and elapsed time produce `not_due`, `due_soon`,
+or `overdue` with metrics and reasons. This result is the authoritative MVP
+maintenance status.
 
-The unified `POST /assistant/query` endpoint supplements these direct endpoints:
+### Deterministic service recommendation
+
+Recommendation answers a separate question: what service or preventive
+inspection should the owner consider? Bounded rules can produce periodic
+maintenance, pre-trip inspection, tyre inspection/rotation, battery health
+check, or no service required. They use only available context and do not claim
+manufacturer schedules, prices, faults, or diagnosis.
+
+### Grounded support/RAG
+
+Three controlled Markdown documents are chunked with stable metadata and
+embedded using `sentence-transformers/all-MiniLM-L6-v2`. Exact in-memory cosine
+similarity retrieval and a configured confidence threshold determine whether
+context supports an answer. Gemini generates only from the grounded prompt;
+source metadata is preserved. Insufficient retrieval returns a deterministic
+fallback with no Gemini call and no fabricated sources.
+
+### Mock human handoff
+
+Explicit handoff routing creates a typed local reference and status. It does
+not contact a CRM, dealer, email, messaging, appointment, or call-centre system.
+
+### Experimental predictive comparison
+
+The experiment uses a deterministic synthetic dataset and a persisted
+`StandardScaler` + `LogisticRegression` pipeline for the target
+`maintenance_needed_within_90_days`. Its `0.19` threshold was selected using
+validation data only. The model improved held-out recall but failed the frozen
+overall useful-value/replacement gate because the required F1 improvement was
+not achieved.
+
+The feature is therefore explicit, secondary, and non-authoritative. It
+preserves deterministic status, ML probability, threshold, binary signals, and
+their relationship side by side. It cannot override maintenance and creates no
+hybrid/final decision. Synthetic results do not establish real-world accuracy.
+
+## Runtime and deployment
+
+```text
+Browser -> Vercel frontend -> Render Docker backend
+```
+
+- Frontend: https://ai-powered-customer-ownership-copil.vercel.app/
+- Backend: https://ai-powered-customer-ownership-copilot.onrender.com/
+- Health: https://ai-powered-customer-ownership-copilot.onrender.com/health
+
+The production backend image uses Python 3.13 slim, Uvicorn, a non-root user,
+runtime-only dependencies, and a writable `/app/runtime`. It prefetches the
+exact MiniLM model during build and runs Hugging Face/Transformers offline at
+runtime. The controlled corpus is copied into the image. Startup creates tables,
+idempotently seeds an empty database, and reuses or reconstructs the frozen
+experimental artifact before readiness.
+
+The image was validated by the successful remote Render build and deployment;
+the development machine did not have a Docker-compatible local engine. Render's
+free tier may cold-start after inactivity.
+
+Exact frontend origins are supplied through environment configuration. Gemini
+credentials remain backend runtime secrets and are never included in the image
+or frontend.
+
+## API surface
+
+Primary frontend contract:
+
+- `POST /assistant/query`
+
+Direct capability endpoints remain available:
 
 - `GET /health`
 - `POST /maintenance/evaluate`
@@ -133,25 +148,46 @@ The unified `POST /assistant/query` endpoint supplements these direct endpoints:
 - `POST /support/query`
 - `POST /maintenance/predictive/compare`
 
-The frontend uses the unified endpoint as its primary interaction contract. It
-does not recreate routing rules, flatten structured capability results, invent
-missing vehicle or experiment inputs, or replace the direct APIs.
+The unified endpoint supplements rather than replaces the direct APIs.
 
-## Constraints
+## Verification state
 
-- Synthetic/public data only
-- No proprietary company information
-- Educational proof-of-concept
-- Low-cost API usage
-- Explainable implementation
-- Safety-focused responses
+- Backend pytest suite: 460 passed
+- Frontend Vitest suite: 47 passed
+- Frontend typecheck, lint, and production build: passed
+- Python dependency check: clean
+- Backend deployed through Render Docker build
+- Frontend deployed through Vercel
 
-## Development Goal
+## Operational characteristics
 
-Build an interview-ready AI application demonstrating:
+- FastAPI lifespan performs essential database and predictive-artifact setup.
+- Runtime initialization is deterministic and idempotent for the demo seed.
+- Request middleware emits safe JSON lifecycle logs with `X-Request-ID` and
+  duration.
+- Assistant logs contain routing/capability/outcome metadata, not customer
+  content.
+- Unexpected errors remain errors; they are logged and not converted into fake
+  successful responses.
+- No external logging aggregation or distributed tracing is used.
 
-- Backend development
-- RAG systems
-- AI tool orchestration
-- Machine learning evaluation
-- Software engineering practices
+## Constraints and limitations
+
+- Synthetic/public data only; no proprietary or real customer information
+- Seeded demo identity and vehicle data; no authentication or customer accounts
+- SQLite is suitable for this bounded demo, not production multi-tenancy;
+  hosted runtime state may reset with the instance lifecycle or redeployment
+- No telematics, real diagnostics, manufacturer schedule, pricing, or warranty
+- No real dealer/CRM/booking/messaging integration
+- Small controlled support corpus and external Gemini dependency
+- Deterministic recommendation rules are demo/MVP rules, not diagnosis
+- Experimental ML uses synthetic data and failed its replacement gate
+- No autonomous agents or LLM-based routing/tool selection
+
+## Project objective
+
+The final repository is intended to be understandable in a technical review or
+interview. It demonstrates deterministic domain design, persistence, RAG,
+experimental ML evaluation, typed orchestration, frontend productization,
+container deployment, testing, and bounded observability without overstating
+what the proof of concept can do.

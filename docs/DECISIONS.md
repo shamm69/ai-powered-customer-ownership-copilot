@@ -1,290 +1,158 @@
 # Architecture Decisions
 
-## Decision 1: Use modular router architecture
+## 1. Keep scheduled maintenance deterministic and authoritative
 
-Date:
-2026-08-05
+**Decision:** Implement distance- and time-based maintenance as pure Python
+domain logic. Stored data supplies inputs but does not own the calculation.
 
-Decision:
+**Why:** Scheduled status must remain explainable, testable, and available
+without an LLM or experimental model.
 
-Use a custom router connecting specialized modules.
+**Rejected:** Letting Gemini or predictive ML determine or override `Not Due`,
+`Due Soon`, or `Overdue`.
 
-Modules:
-- RAG
-- Predictive maintenance
-- Recommendations
-- Escalation
+## 2. Use SQLite and deterministic synthetic seed data for the demo
 
-Reason:
+**Decision:** Use SQLAlchemy with SQLite for bounded customer, vehicle, and
+service history. Create tables and apply an idempotent synthetic seed at startup.
 
-This provides:
-- Better testing
-- Easier debugging
-- More explainable behaviour
+**Why:** The proof of concept needs realistic persistence and reproducible demo
+state without collecting private data or operating production infrastructure.
 
-Rejected:
+**Rejected:** Proprietary/customer data, PostgreSQL migration solely for the
+demo, or committing a generated runtime database.
 
-Full multi-agent architecture initially.
+## 3. Ground support answers in a controlled corpus
 
-Reason:
+**Decision:** Chunk controlled Markdown documents, embed them locally with
+`sentence-transformers/all-MiniLM-L6-v2`, retrieve by cosine similarity, and
+apply confidence gating before Gemini generation. Preserve source metadata.
 
-Too complex for the timeline and unnecessary for MVP.
+**Why:** Grounding and a deterministic unsupported fallback are safer and more
+explainable than unrestricted general automotive answers.
 
----
+**Rejected:** Calling Gemini without retrieved evidence, fabricating citations,
+or adding a vector database/framework without demonstrated need.
 
-## Decision 2: Build deterministic logic first
+## 4. Retain predictive ML only as a failed-gate experiment
 
-Date:
-2026-08-05
+**Decision:** Keep the frozen `StandardScaler` + `LogisticRegression` pipeline,
+validation-selected threshold `0.19`, and side-by-side comparison only. Rebuild
+the ignored artifact reproducibly from fixed synthetic data and seeds when
+absent.
 
-Decision:
+**Why:** The experiment improved recall and exceeded its ROC-AUC boundary but
+failed the predefined overall replacement gate because F1 improvement was below
+0.05. Synthetic results do not prove real-world accuracy.
 
-Implement normal Python functions before adding LLM capabilities.
+**Rejected:** Replacing deterministic maintenance, tuning on held-out test data,
+committing generated binaries, or creating a hybrid/final status.
 
-Reason:
+## 5. Use a deterministic router and explicit orchestrator
 
-Business logic should remain reliable even when an LLM is unavailable.
+**Decision:** Classify a small routing vocabulary with explainable rules, then
+invoke one bounded service through an explicit orchestrator. Treat ambiguity,
+unsupported requests, and missing context as typed outcomes.
 
----
+**Why:** Current workflow complexity does not justify probabilistic routing or
+an agent framework. Explicit orchestration preserves service boundaries and is
+easy to test.
 
-## Decision 3: Synthetic data only
+**Rejected:** Autonomous/multi-agent architecture, LLM intent classification,
+LLM tool calling, LangChain agents, LangGraph, and arbitrary fallback to RAG.
 
-Date:
-2026-08-05
+## 6. Keep recommendations deterministic, bounded, and non-diagnostic
 
-Decision:
+**Decision:** Recommend only predefined service/inspection categories using
+authoritative maintenance, stored vehicle context, and explicit long-trip
+intent. Return ordered priority, reason, and supporting factors.
 
-Use synthetic or publicly usable datasets.
+**Why:** Available demo data supports explainable preventive suggestions, not
+fault diagnosis or manufacturer-specific service schedules.
 
-Reason:
+**Rejected:** Gemini/ML recommendation selection, invented faults, prices,
+dealer packages, or replacement advice.
 
-Avoid confidential information and make the project reproducible.
+## 7. Model human handoff as a local mock
 
----
+**Decision:** Return a typed local ticket/reference result for explicit handoff
+intent and disclose that no external system was contacted.
 
-## Decision 4: Prioritize MVP completion
+**Why:** This demonstrates escalation orchestration without implying unavailable
+CRM, dealer, email, messaging, appointment, or call-centre integrations.
 
-Date:
-2026-08-05
+## 8. Preserve structured capability results in one customer portal
 
-Decision:
+**Decision:** Build one React/Vite/TypeScript ownership workspace around
+`POST /assistant/query`. Validate responses at runtime and render separate cards
+for maintenance, recommendations, grounded support, mock handoff, and the ML
+comparison.
 
-Prefer a smaller working system over many incomplete features.
+**Why:** Structured results retain capability meaning and make the demo clearer
+than a generic chatbot or raw JSON interface.
 
-Reason:
+**Rejected:** Frontend intent routing, flattening every result into prose, Redux,
+React Router, or a large UI framework without product need.
 
-A complete explainable project has more value than unnecessary complexity.
+## 9. Separate experimental/admin UI from the customer journey
 
-## Decision 5: Tool-Orchestrated Architecture
+**Decision:** Place the eight-field predictive comparison in a secondary
+Technical Preview rather than among primary customer quick actions. Keep
+synthetic-data, failed-gate, and non-override disclosures visible.
 
-Date:
-2026-08-05
+**Why:** Manual feature entry is an evaluation/demo workflow, not a believable
+normal owner interaction. Customer flows should prioritize maintenance,
+recommendations, grounded support, and handoff.
 
-Decision:
+## 10. Bootstrap fresh runtimes explicitly and restrict CORS
 
-Use an orchestrator with specialized tools/services instead of independent AI agents.
+**Decision:** Use environment-driven SQLite/artifact paths and FastAPI lifespan
+startup to create tables, seed idempotently, and reuse/reconstruct the frozen
+artifact. Accept only configured exact frontend origins, with no wildcard or
+credentials.
 
-Reason:
+**Why:** A fresh container must not rely on a developer machine, while browser
+access should remain narrowly configured.
 
-Provides better testing, reliability, and explainability while still demonstrating agentic behaviour.
+**Rejected:** Committed runtime state, silent prediction changes, large settings
+frameworks, permissive wildcard CORS, or unnecessary credentials.
 
-Future possibility:
+## 11. Ship one production backend Docker image
 
-A graph-based agent framework may be evaluated if the workflow complexity requires it.
+**Decision:** Use `python:3.13-slim`, runtime-only dependencies, non-root Uvicorn,
+a writable `/app/runtime`, build-time MiniLM prefetch, offline Hugging Face
+runtime, dynamic `PORT`, and `/health`.
 
----
+**Why:** Render needs a reproducible image containing source and the controlled
+corpus while generating database/artifact state only at runtime.
 
-## Decision 6: Keep predictive ML experimental and deterministic rules authoritative
+**Rejected:** Baking local databases/artifacts or secrets into image layers,
+using a reload server, or adding Compose/Kubernetes for a single backend.
 
-Date:
-2026-08-17
+## 12. Deploy the frontend on Vercel and backend on Render
 
-Decision:
+**Decision:** Host the static Vite frontend on Vercel and the Docker/FastAPI API
+on Render, with the backend URL supplied to the frontend and the Vercel origin
+allowed explicitly by CORS.
 
-Keep the deterministic maintenance evaluator as the authoritative MVP mechanism.
-Retain Logistic Regression only as an experimental complementary probability
-signal, exposed beside the deterministic result without a hybrid/final decision.
+**Why:** This is a small, understandable deployment topology suitable for a
+public proof of concept. Render's remote build also validates the Docker image
+on a machine where no local Docker-compatible engine was available.
 
-Reason:
+**Trade-off:** The free Render tier may cold-start after inactivity, and SQLite
+runtime state remains demo-oriented and may reset with the instance lifecycle
+or redeployment rather than acting as durable production storage.
 
-The model improved held-out recall and exceeded the predefined ROC-AUC boundary,
-but it failed the frozen overall useful-value gate because its F1 improvement was
-below the required absolute 0.05. The result comes from controlled synthetic data
-and does not establish real-world predictive-maintenance accuracy.
+## 13. Use lightweight privacy-conscious JSON observability
 
-Rejected:
+**Decision:** Emit standard-library JSON logs for request lifecycle, assistant
+routing outcome, runtime bootstrap, readiness, shutdown, and unexpected errors.
+Assign or safely reuse `X-Request-ID` and record monotonic duration. Configure
+severity with `LOG_LEVEL`.
 
-Replacing or overriding deterministic maintenance status with the experimental
-model.
+**Why:** Operational debugging needs correlation and outcome visibility without
+heavy monitoring infrastructure or collection of customer content.
 
----
-
-## Decision 7: Use explicit deterministic routing and structured orchestration
-
-Date:
-2026-08-18
-
-Decision:
-
-Implement Phase 4 as a small deterministic intent classifier followed by an
-explicit orchestrator that invokes existing tools and services. Dependencies and
-context remain route-specific, and orchestration returns typed structured
-results rather than flattening every capability into free text.
-
-The orchestrator preserves grounded RAG answers and source metadata, creates
-human handoffs through a deterministic local mock service, and invokes the
-predictive-maintenance comparison only for explicit experimental/ML intent. The
-experimental result remains non-authoritative and separate from deterministic
-maintenance.
-
-Expose this flow through `POST /assistant/query` while retaining the existing
-direct endpoints.
-
-Reason:
-
-The current routing vocabulary is small enough for explainable deterministic
-rules. Explicit context requirements prevent unrelated routes from inheriting
-dependencies, structured results preserve each capability's semantics, and
-ambiguous or unsupported requests can stop safely without arbitrary tool
-execution.
-
-Rejected:
-
-- Autonomous agents or a multi-agent architecture
-- LLM intent classification or LLM tool calling for MVP routing
-- LangChain or LangGraph agent frameworks without demonstrated workflow need
-- Reconstructing grounded RAG output or discarding its sources
-- A real CRM integration for the bounded mock handoff capability
-- Automatically invoking experimental ML for ordinary maintenance requests
-- Replacing direct APIs with only the unified assistant endpoint
-
----
-
-## Decision 8: Build one typed ownership dashboard around the unified assistant
-
-Date:
-2026-08-18
-
-Decision:
-
-Implement Phase 5 as one responsive React, Vite, and TypeScript ownership
-dashboard with an embedded assistant. Use a small native-fetch client with
-runtime response validation and a Vite development proxy to the existing
-FastAPI `POST /assistant/query` endpoint.
-
-Render each structured orchestration result with a dedicated presentation:
-authoritative deterministic maintenance, grounded support with sources, local
-mock handoff, and explicitly experimental predictive comparison. Preserve
-context-required, unsupported, clarification, loading, and error outcomes
-without adding frontend intent classification.
-
-Reason:
-
-A single polished ownership workspace makes the proof of concept easy to
-understand and demonstrate while keeping the backend as the source of routing
-and business truth. Typed boundaries prevent capability results from being
-silently flattened or confused, and the Vite proxy supports local development
-without changing backend CORS solely for the frontend.
-
-Rejected:
-
-- A generic chatbot or raw API-response interface
-- Frontend routing or intent classification that competes with the backend
-- Combining deterministic and experimental maintenance into a final status
-- Hiding the synthetic-data, failed-gate, or local mock-handoff limitations
-- Adding React Router, Redux, a large UI framework, or a data-fetching framework
-  without demonstrated need
-
----
-
-## Decision 9: Bootstrap deterministic local runtime state explicitly
-
-Date:
-2026-08-18
-
-Decision:
-
-Use a small environment-driven configuration boundary and FastAPI lifespan
-bootstrap for fresh runtimes. Anchor default SQLite and generated-artifact paths
-to the backend directory, create missing tables, apply the existing idempotent
-demo seed, and reuse or reconstruct the frozen experimental predictive artifact
-before accepting requests. Configure CORS from exact allowed origins with safe
-local defaults, no wildcard production default, and no credentials.
-
-Reason:
-
-A fresh container or cloud filesystem must not depend on files generated on a
-developer machine or on its process working directory. Explicit startup
-preparation makes failures visible, preserves deterministic seed and experiment
-semantics, and keeps deployment configuration understandable without adding a
-settings framework, database migration platform, or model registry.
-
-Rejected:
-
-- Committing runtime SQLite databases or generated model binaries
-- Silently changing prediction behavior when an artifact is missing
-- Replacing SQLite or adding a large configuration framework for this phase
-- Permissive wildcard CORS or browser credential support that the product does
-  not require
-
----
-
-## Decision 10: Keep service recommendations deterministic and non-diagnostic
-
-Date:
-2026-08-18
-
-Decision:
-
-Implement service-type recommendations as a small rule-based application
-service over stored vehicle context and the existing authoritative maintenance
-result. Keep scheduled status, recommended next service, and experimental ML as
-three separate meanings. Route explicit recommendation and long-trip requests
-deterministically and return typed ordered recommendations with explanations.
-
-Reason:
-
-The proof of concept has enough trustworthy context to recommend bounded
-service or preventive-inspection categories, but not to diagnose component
-failures or claim manufacturer-specific schedules. Named demo/MVP thresholds
-remain easy to test, explain, and revise without introducing an LLM decision
-boundary.
-
-Rejected:
-
-- Using Gemini or experimental ML to select service recommendations
-- Inventing faults, sensor readings, prices, dealer packages, or replacement
-  advice
-- Combining maintenance status and recommendations into a hybrid/final status
-
----
-
-## Decision 11: Use bounded structured application logging
-
-Date:
-2026-08-18
-
-Decision:
-
-Use one standard-library JSON application logger plus FastAPI request
-middleware. Assign or safely reuse an `X-Request-ID`, expose it in responses,
-and record request lifecycle, assistant routing outcomes, runtime bootstrap,
-readiness, shutdown, and unexpected failure events. Configure severity with
-`LOG_LEVEL` and fall back clearly to `INFO` for invalid values.
-
-Operational logs contain only an approved metadata field set. They exclude
-request bodies, assistant messages, predictive features, retrieved text,
-generated answers, handoff summaries, database records, and secrets.
-
-Reason:
-
-The deployed proof of concept needs enough production diagnostics to correlate
-requests and understand routing, outcomes, latency, and startup health without
-adding infrastructure or collecting customer content.
-
-Rejected:
-
-- Heavy metrics, tracing, collector, or external logging infrastructure
-- Database-backed audit logging
-- Logging request/response bodies or capability content
-- Swallowing unexpected exceptions to manufacture successful responses
+**Rejected:** Logging request bodies/messages, predictive inputs, retrieved or
+generated content, database records, or secrets; database audit logs; external
+log SaaS; Prometheus/Grafana/ELK; OpenTelemetry collectors.
