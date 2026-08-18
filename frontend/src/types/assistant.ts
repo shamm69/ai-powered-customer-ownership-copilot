@@ -1,5 +1,6 @@
 export type RoutingIntent =
   | 'stored_vehicle_maintenance'
+  | 'service_recommendation'
   | 'support_knowledge'
   | 'experimental_predictive_maintenance'
   | 'human_handoff'
@@ -15,6 +16,7 @@ export type OrchestrationOutcome =
 
 export type OrchestratedCapability =
   | 'stored_vehicle_maintenance'
+  | 'service_recommendation'
   | 'support_knowledge'
   | 'human_handoff'
   | 'experimental_predictive_maintenance_comparison'
@@ -33,6 +35,18 @@ export type RetrievalSupportStatus = 'supported' | 'unsupported'
 export type EscalationReason = 'routed_human_handoff'
 export type HandoffStatus = 'created'
 export type BinarySignal = 0 | 1
+export type ServiceType =
+  | 'periodic_maintenance_service'
+  | 'pre_trip_inspection'
+  | 'tyre_inspection_rotation'
+  | 'battery_health_check'
+  | 'no_service_required'
+export type RecommendationPriority =
+  | 'none'
+  | 'routine'
+  | 'recommended'
+  | 'due_soon'
+  | 'urgent'
 
 export type MaintenanceSignalRelationship =
   | 'agree_negative'
@@ -118,6 +132,19 @@ export interface PredictiveMaintenanceComparisonResult {
   comparison: MaintenanceComparisonSignals
 }
 
+export interface ServiceRecommendation {
+  service_type: ServiceType
+  priority: RecommendationPriority
+  reason: string
+  supporting_factors: string[]
+}
+
+/** Deterministic next-service guidance kept separate from maintenance status. */
+export interface ServiceRecommendationResult {
+  authoritative_maintenance: MaintenanceResult
+  recommendations: ServiceRecommendation[]
+}
+
 interface AssistantResponseBase {
   routing_decision: RoutingDecision
   missing_context: OrchestrationContextField[]
@@ -131,6 +158,17 @@ export interface MaintenanceAssistantResponse extends AssistantResponseBase {
   support_result: null
   escalation_result: null
   experimental_comparison_result: null
+  recommendation_result: null
+}
+
+export interface RecommendationAssistantResponse extends AssistantResponseBase {
+  outcome: 'executed'
+  invoked_capability: 'service_recommendation'
+  maintenance_result: null
+  support_result: null
+  escalation_result: null
+  experimental_comparison_result: null
+  recommendation_result: ServiceRecommendationResult
 }
 
 export interface SupportAssistantResponse extends AssistantResponseBase {
@@ -140,6 +178,7 @@ export interface SupportAssistantResponse extends AssistantResponseBase {
   support_result: SupportResult
   escalation_result: null
   experimental_comparison_result: null
+  recommendation_result: null
 }
 
 export interface HandoffAssistantResponse extends AssistantResponseBase {
@@ -149,6 +188,7 @@ export interface HandoffAssistantResponse extends AssistantResponseBase {
   support_result: null
   escalation_result: HumanHandoffResult
   experimental_comparison_result: null
+  recommendation_result: null
 }
 
 export interface ExperimentalComparisonAssistantResponse
@@ -159,6 +199,7 @@ export interface ExperimentalComparisonAssistantResponse
   support_result: null
   escalation_result: null
   experimental_comparison_result: PredictiveMaintenanceComparisonResult
+  recommendation_result: null
 }
 
 export interface UnexecutedAssistantResponse extends AssistantResponseBase {
@@ -168,10 +209,12 @@ export interface UnexecutedAssistantResponse extends AssistantResponseBase {
   support_result: null
   escalation_result: null
   experimental_comparison_result: null
+  recommendation_result: null
 }
 
 export type AssistantQueryResponse =
   | MaintenanceAssistantResponse
+  | RecommendationAssistantResponse
   | SupportAssistantResponse
   | HandoffAssistantResponse
   | ExperimentalComparisonAssistantResponse

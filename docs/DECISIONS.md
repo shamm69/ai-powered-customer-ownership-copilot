@@ -226,3 +226,33 @@ Rejected:
 - Replacing SQLite or adding a large configuration framework for this phase
 - Permissive wildcard CORS or browser credential support that the product does
   not require
+
+---
+
+## Decision 10: Keep service recommendations deterministic and non-diagnostic
+
+Date:
+2026-08-18
+
+Decision:
+
+Implement service-type recommendations as a small rule-based application
+service over stored vehicle context and the existing authoritative maintenance
+result. Keep scheduled status, recommended next service, and experimental ML as
+three separate meanings. Route explicit recommendation and long-trip requests
+deterministically and return typed ordered recommendations with explanations.
+
+Reason:
+
+The proof of concept has enough trustworthy context to recommend bounded
+service or preventive-inspection categories, but not to diagnose component
+failures or claim manufacturer-specific schedules. Named demo/MVP thresholds
+remain easy to test, explain, and revise without introducing an LLM decision
+boundary.
+
+Rejected:
+
+- Using Gemini or experimental ML to select service recommendations
+- Inventing faults, sensor readings, prices, dealer packages, or replacement
+  advice
+- Combining maintenance status and recommendations into a hybrid/final status

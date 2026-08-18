@@ -43,7 +43,7 @@ const quickActions: QuickAction[] = [
   {
     label: 'Talk to human support',
     description: 'Create a demo handoff request',
-    prompt: 'I want to speak with support.',
+    prompt: 'I want to speak to a human agent.',
     icon: Headphones,
   },
   {

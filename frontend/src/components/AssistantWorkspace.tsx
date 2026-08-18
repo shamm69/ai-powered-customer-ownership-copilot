@@ -20,6 +20,7 @@ import {
 import { HandoffResultCard } from './results/HandoffResultCard'
 import { MaintenanceResultCard } from './results/MaintenanceResultCard'
 import { PredictiveComparisonCard } from './results/PredictiveComparisonCard'
+import { ServiceRecommendationCard } from './results/ServiceRecommendationCard'
 import { SupportResultCard } from './results/SupportResultCard'
 
 interface AssistantWorkspaceProps {
@@ -256,6 +257,10 @@ function AssistantResponseSummary({ response }: { response: AssistantQueryRespon
     return <SupportResultCard result={response.support_result} />
   }
 
+  if (response.invoked_capability === 'service_recommendation') {
+    return <ServiceRecommendationCard result={response.recommendation_result} />
+  }
+
   if (response.invoked_capability === 'human_handoff') {
     return <HandoffResultCard result={response.escalation_result} />
   }
@@ -282,14 +287,14 @@ function AssistantResponseSummary({ response }: { response: AssistantQueryRespon
       ) : null}
       {response.outcome === 'unsupported' ? (
         <span className="assistant-summary__hint">
-          Try asking about scheduled maintenance, vehicle support documentation, or a
-          human handoff.
+          Try asking about scheduled maintenance, service recommendations, vehicle
+          support documentation, or a human handoff.
         </span>
       ) : null}
       {response.outcome === 'clarification_required' ? (
         <span className="assistant-summary__hint">
-          Specify whether you need maintenance status, support guidance, the experiment,
-          or a human handoff.
+          Specify whether you need maintenance status, a service recommendation,
+          support guidance, the experiment, or a human handoff.
         </span>
       ) : null}
     </div>

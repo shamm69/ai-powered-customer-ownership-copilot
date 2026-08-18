@@ -2,12 +2,12 @@
 
 ## Current Phase
 
-Phase 6 in progress — deployment-readiness foundation complete
+Phase 6 in progress — deterministic service recommendations complete
 
 ## Current Task
 
-Phase 6.1 — Deployment-readiness foundation is complete. Dockerization and
-deployment have not started.
+Phase 6.4.1 — Deterministic service recommendations and quick-action routing
+hardening are complete. Phase 6 remains in progress.
 
 ## Authoritative Roadmap
 
@@ -27,6 +27,26 @@ history were not renamed or redone; Phase 2.5 is not an additional permanent
 roadmap phase.
 
 ## Completed
+
+### 2026-08-18 — Phase 6.4.1
+
+- Added an explainable stored-vehicle service recommendation capability that
+  reuses authoritative deterministic maintenance and returns ordered service or
+  preventive-inspection categories with priority, reasons, and supporting
+  factors.
+- Added bounded demo/MVP rules for periodic maintenance, explicit long-trip
+  inspection, distance-based tyre inspection/rotation, age-based battery health
+  checks, and a truthful no-service-required result. These are not manufacturer
+  schedules or mechanical diagnoses.
+- Integrated recommendation through deterministic routing, explicit
+  orchestration, the typed `POST /assistant/query` response, and a dedicated
+  frontend result card without changing maintenance or experimental-ML
+  semantics.
+- Aligned every visible quick action with a canonical phrase recognized by the
+  deterministic router, including long-trip recommendation and human handoff.
+- Completed the bounded capability with 452 backend and 46 frontend tests
+  passing, plus clean backend dependency, frontend typecheck, lint, and
+  production build results.
 
 ### 2026-08-18 — Phase 6.1
 
@@ -234,9 +254,9 @@ roadmap phase.
   decision and uses an ignored local artifact with threshold `0.19`.
 - `POST /assistant/query` exposes deterministic routing, explicit orchestration,
   and structured capability-specific results without replacing direct APIs.
-- Complete backend test suite has 428 tests passing in the repaired
+- Complete backend test suite has 452 tests passing in the repaired
   project-local Python 3.13.5 `.venv`; `pip check` is clean.
-- Complete frontend suite has 38 tests passing, with typecheck, lint, and the
+- Complete frontend suite has 46 tests passing, with typecheck, lint, and the
   Vite production build also passing.
 - The React frontend uses `POST /assistant/query` through a local Vite proxy and
   preserves structured maintenance, grounded support, mock handoff, and

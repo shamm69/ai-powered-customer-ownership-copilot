@@ -31,6 +31,13 @@ from app.orchestrator import (
     orchestrate_user_request,
 )
 from app.routing import RoutingIntent
+from app.service_recommendations import (
+    RecommendationContext,
+    RecommendationPriority,
+    ServiceRecommendation,
+    ServiceRecommendationResult,
+    ServiceType,
+)
 from app.retrieval_confidence import RetrievalSupportStatus
 
 
@@ -175,6 +182,80 @@ def predictive_context() -> OrchestrationContext:
     return OrchestrationContext(
         predictive_maintenance_input=predictive_feature_input()
     )
+
+
+def recommendation_result() -> ServiceRecommendationResult:
+    return ServiceRecommendationResult(
+        maintenance_result=maintenance_result(MaintenanceStatus.NOT_DUE),
+        recommendations=(
+            ServiceRecommendation(
+                service_type=ServiceType.PRE_TRIP_INSPECTION,
+                priority=RecommendationPriority.RECOMMENDED,
+                reason="Preventive long-trip inspection.",
+                supporting_factors=("Explicit long-trip context.",),
+            ),
+        ),
+    )
+
+
+class FakeRecommendationService:
+    def __init__(self, result: ServiceRecommendationResult) -> None:
+        self.result = result
+        self.calls: list[tuple[Session, int, date, RecommendationContext]] = []
+
+    def __call__(
+        self,
+        session: Session,
+        vehicle_id: int,
+        evaluation_date: date,
+        recommendation_context: RecommendationContext,
+    ) -> ServiceRecommendationResult:
+        self.calls.append(
+            (session, vehicle_id, evaluation_date, recommendation_context)
+        )
+        return self.result
+
+
+def test_recommendation_route_executes_and_preserves_exact_result() -> None:
+    expected_result = recommendation_result()
+    service = FakeRecommendationService(expected_result)
+    context = complete_context()
+
+    result = orchestrate_user_request(
+        "What should I check before a long trip?",
+        context,
+        recommendation_service=service,
+    )
+
+    assert service.calls == [
+        (
+            context.session,
+            42,
+            date(2026, 8, 18),
+            RecommendationContext.LONG_TRIP,
+        )
+    ]
+    assert result.outcome is OrchestrationOutcome.EXECUTED
+    assert result.invoked_capability is OrchestratedCapability.SERVICE_RECOMMENDATION
+    assert result.recommendation_result is expected_result
+    assert result.maintenance_result is None
+
+
+def test_recommendation_missing_vehicle_context_does_not_execute() -> None:
+    service = FakeRecommendationService(recommendation_result())
+
+    result = orchestrate_user_request(
+        "What service do I need?",
+        OrchestrationContext(
+            evaluation_date=date(2026, 8, 18),
+            session=MagicMock(spec=Session),
+        ),
+        recommendation_service=service,
+    )
+
+    assert service.calls == []
+    assert result.outcome is OrchestrationOutcome.CONTEXT_REQUIRED
+    assert result.missing_context == (OrchestrationContextField.VEHICLE_ID,)
 
 
 def test_maintenance_route_invokes_existing_application_service() -> None:
@@ -715,6 +796,7 @@ def test_experimental_route_cannot_create_hybrid_maintenance_result() -> None:
         "support_result",
         "escalation_result",
         "experimental_comparison_result",
+        "recommendation_result",
         "missing_context",
         "message",
     }

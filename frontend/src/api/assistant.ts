@@ -13,14 +13,18 @@ import type {
   OrchestrationContextField,
   OrchestrationOutcome,
   PredictiveMaintenanceComparisonResult,
+  RecommendationPriority,
   RetrievalSupportStatus,
   RoutingDecision,
   RoutingIntent,
   SupportResult,
+  ServiceRecommendationResult,
+  ServiceType,
 } from '../types/assistant'
 
 const routingIntents = [
   'stored_vehicle_maintenance',
+  'service_recommendation',
   'support_knowledge',
   'experimental_predictive_maintenance',
   'human_handoff',
@@ -38,6 +42,7 @@ const orchestrationOutcomes = [
 
 const capabilities = [
   'stored_vehicle_maintenance',
+  'service_recommendation',
   'support_knowledge',
   'human_handoff',
   'experimental_predictive_maintenance_comparison',
@@ -77,6 +82,22 @@ const signalRelationships = [
   'ml_only_positive',
 ] as const satisfies readonly MaintenanceSignalRelationship[]
 
+const serviceTypes = [
+  'periodic_maintenance_service',
+  'pre_trip_inspection',
+  'tyre_inspection_rotation',
+  'battery_health_check',
+  'no_service_required',
+] as const satisfies readonly ServiceType[]
+
+const recommendationPriorities = [
+  'none',
+  'routine',
+  'recommended',
+  'due_soon',
+  'urgent',
+] as const satisfies readonly RecommendationPriority[]
+
 export function queryAssistant(
   request: AssistantQueryRequest,
 ): Promise<AssistantQueryResponse> {
@@ -97,7 +118,8 @@ export function parseAssistantQueryResponse(
       payload.maintenance_result !== null ||
       payload.support_result !== null ||
       payload.escalation_result !== null ||
-      payload.experimental_comparison_result !== null
+      payload.experimental_comparison_result !== null ||
+      payload.recommendation_result !== null
     ) {
       throw new TypeError('Unexecuted response must not contain a capability result')
     }
@@ -111,6 +133,7 @@ export function parseAssistantQueryResponse(
       support_result: null,
       escalation_result: null,
       experimental_comparison_result: null,
+      recommendation_result: null,
     }
   }
 
@@ -128,7 +151,8 @@ export function parseAssistantQueryResponse(
     isMaintenanceResult(payload.maintenance_result) &&
     payload.support_result === null &&
     payload.escalation_result === null &&
-    payload.experimental_comparison_result === null
+    payload.experimental_comparison_result === null &&
+    payload.recommendation_result === null
   ) {
     return {
       ...base,
@@ -137,6 +161,25 @@ export function parseAssistantQueryResponse(
       support_result: null,
       escalation_result: null,
       experimental_comparison_result: null,
+      recommendation_result: null,
+    }
+  }
+  if (
+    capability === 'service_recommendation' &&
+    payload.maintenance_result === null &&
+    payload.support_result === null &&
+    payload.escalation_result === null &&
+    payload.experimental_comparison_result === null &&
+    isServiceRecommendationResult(payload.recommendation_result)
+  ) {
+    return {
+      ...base,
+      invoked_capability: capability,
+      maintenance_result: null,
+      support_result: null,
+      escalation_result: null,
+      experimental_comparison_result: null,
+      recommendation_result: payload.recommendation_result,
     }
   }
   if (
@@ -144,7 +187,8 @@ export function parseAssistantQueryResponse(
     payload.maintenance_result === null &&
     isSupportResult(payload.support_result) &&
     payload.escalation_result === null &&
-    payload.experimental_comparison_result === null
+    payload.experimental_comparison_result === null &&
+    payload.recommendation_result === null
   ) {
     return {
       ...base,
@@ -153,6 +197,7 @@ export function parseAssistantQueryResponse(
       support_result: payload.support_result,
       escalation_result: null,
       experimental_comparison_result: null,
+      recommendation_result: null,
     }
   }
   if (
@@ -160,7 +205,8 @@ export function parseAssistantQueryResponse(
     payload.maintenance_result === null &&
     payload.support_result === null &&
     isHandoffResult(payload.escalation_result) &&
-    payload.experimental_comparison_result === null
+    payload.experimental_comparison_result === null &&
+    payload.recommendation_result === null
   ) {
     return {
       ...base,
@@ -169,6 +215,7 @@ export function parseAssistantQueryResponse(
       support_result: null,
       escalation_result: payload.escalation_result,
       experimental_comparison_result: null,
+      recommendation_result: null,
     }
   }
   if (
@@ -176,7 +223,8 @@ export function parseAssistantQueryResponse(
     payload.maintenance_result === null &&
     payload.support_result === null &&
     payload.escalation_result === null &&
-    isPredictiveComparisonResult(payload.experimental_comparison_result)
+    isPredictiveComparisonResult(payload.experimental_comparison_result) &&
+    payload.recommendation_result === null
   ) {
     return {
       ...base,
@@ -185,6 +233,7 @@ export function parseAssistantQueryResponse(
       support_result: null,
       escalation_result: null,
       experimental_comparison_result: payload.experimental_comparison_result,
+      recommendation_result: null,
     }
   }
   throw new TypeError('Executed response capability result is inconsistent')
@@ -200,6 +249,7 @@ type AssistantResponseWire = Record<string, unknown> & {
   support_result: unknown
   escalation_result: unknown
   experimental_comparison_result: unknown
+  recommendation_result: unknown
 }
 
 function hasValidBaseFields(
@@ -215,7 +265,8 @@ function hasValidBaseFields(
     'maintenance_result' in value &&
     'support_result' in value &&
     'escalation_result' in value &&
-    'experimental_comparison_result' in value
+    'experimental_comparison_result' in value &&
+    'recommendation_result' in value
   )
 }
 
@@ -291,6 +342,26 @@ function isPredictiveComparisonResult(
     isBinarySignal(comparison.deterministic_binary_signal) &&
     isBinarySignal(comparison.experimental_ml_binary_signal) &&
     isOneOf(comparison.relationship, signalRelationships)
+  )
+}
+
+function isServiceRecommendationResult(
+  value: unknown,
+): value is ServiceRecommendationResult {
+  return (
+    isRecord(value) &&
+    isMaintenanceResult(value.authoritative_maintenance) &&
+    isArrayOf(
+      value.recommendations,
+      (
+        recommendation,
+      ): recommendation is ServiceRecommendationResult['recommendations'][number] =>
+        isRecord(recommendation) &&
+        isOneOf(recommendation.service_type, serviceTypes) &&
+        isOneOf(recommendation.priority, recommendationPriorities) &&
+        typeof recommendation.reason === 'string' &&
+        isArrayOf(recommendation.supporting_factors, isString),
+    )
   )
 }
 

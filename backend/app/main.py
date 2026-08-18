@@ -68,6 +68,13 @@ from app.runtime_configuration import (
     configure_cors,
     get_predictive_artifact_directory,
 )
+from app.service_recommendations import (
+    RecommendationContext,
+    RecommendationPriority,
+    ServiceRecommendationResult,
+    ServiceType,
+    recommend_vehicle_services,
+)
 
 RAG_TOP_K_ENVIRONMENT_VARIABLE = "RAG_TOP_K"
 RAG_MINIMUM_SIMILARITY_ENVIRONMENT_VARIABLE = "RAG_MINIMUM_SIMILARITY"
@@ -199,6 +206,22 @@ class HumanHandoffResponse(BaseModel):
     status: HandoffStatus
 
 
+class ServiceRecommendationItemResponse(BaseModel):
+    """One deterministic service or inspection recommendation."""
+
+    service_type: ServiceType
+    priority: RecommendationPriority
+    reason: str
+    supporting_factors: list[str]
+
+
+class ServiceRecommendationResponse(BaseModel):
+    """Recommendations kept distinct from authoritative maintenance status."""
+
+    authoritative_maintenance: MaintenanceEvaluationResponse
+    recommendations: list[ServiceRecommendationItemResponse]
+
+
 class AssistantQueryResponse(BaseModel):
     """Structured orchestration response with capability-specific results."""
 
@@ -213,6 +236,7 @@ class AssistantQueryResponse(BaseModel):
     experimental_comparison_result: (
         PredictiveMaintenanceComparisonResponse | None
     )
+    recommendation_result: ServiceRecommendationResponse | None
 
 
 def get_evaluation_date() -> date:
@@ -280,6 +304,24 @@ def support_source_response(source: AnswerSource) -> SupportSourceResponse:
     )
 
 
+def service_recommendation_response(
+    result: ServiceRecommendationResult,
+) -> ServiceRecommendationResponse:
+    """Map deterministic recommendations without merging their meanings."""
+    return ServiceRecommendationResponse(
+        authoritative_maintenance=maintenance_response(result.maintenance_result),
+        recommendations=[
+            ServiceRecommendationItemResponse(
+                service_type=recommendation.service_type,
+                priority=recommendation.priority,
+                reason=recommendation.reason,
+                supporting_factors=list(recommendation.supporting_factors),
+            )
+            for recommendation in result.recommendations
+        ],
+    )
+
+
 def assistant_response(result: OrchestrationResult) -> AssistantQueryResponse:
     """Map the typed orchestrator result without flattening tool outputs."""
     return AssistantQueryResponse(
@@ -308,6 +350,11 @@ def assistant_response(result: OrchestrationResult) -> AssistantQueryResponse:
                 result.experimental_comparison_result
             )
             if result.experimental_comparison_result is not None
+            else None
+        ),
+        recommendation_result=(
+            service_recommendation_response(result.recommendation_result)
+            if result.recommendation_result is not None
             else None
         ),
     )
@@ -409,6 +456,24 @@ class RuntimeStoredMaintenanceService:
         )
 
 
+class RuntimeServiceRecommendationService:
+    """Request-time adapter for deterministic stored-vehicle recommendations."""
+
+    def __call__(
+        self,
+        session: Session,
+        vehicle_id: int,
+        evaluation_date: date,
+        recommendation_context: RecommendationContext,
+    ) -> ServiceRecommendationResult:
+        return recommend_vehicle_services(
+            session=session,
+            vehicle_id=vehicle_id,
+            evaluation_date=evaluation_date,
+            recommendation_context=recommendation_context,
+        )
+
+
 class RuntimeRagService:
     """Lazy adapter that prepares the cached RAG service only when selected."""
 
@@ -446,6 +511,11 @@ def get_orchestration_maintenance_service(
 
 def get_orchestration_rag_service() -> RuntimeRagService:
     return RuntimeRagService()
+
+
+def get_orchestration_recommendation_service(
+) -> RuntimeServiceRecommendationService:
+    return RuntimeServiceRecommendationService()
 
 
 def get_orchestration_escalation_service() -> RuntimeEscalationService:
@@ -530,6 +600,9 @@ def query_assistant(
     maintenance_service: RuntimeStoredMaintenanceService = Depends(
         get_orchestration_maintenance_service
     ),
+    recommendation_service: RuntimeServiceRecommendationService = Depends(
+        get_orchestration_recommendation_service
+    ),
     rag_service: RuntimeRagService = Depends(get_orchestration_rag_service),
     escalation_service: RuntimeEscalationService = Depends(
         get_orchestration_escalation_service
@@ -562,6 +635,7 @@ def query_assistant(
             request.message,
             context,
             maintenance_service=maintenance_service,
+            recommendation_service=recommendation_service,
             rag_service=rag_service,
             escalation_service=escalation_service,
             predictive_comparison_service=predictive_service,

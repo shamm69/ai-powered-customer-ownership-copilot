@@ -18,6 +18,11 @@ from app.predictive_maintenance_prediction import (
     PredictiveMaintenanceFeatureInput,
 )
 from app.routing import RoutingDecision, RoutingIntent, classify_routing_intent
+from app.service_recommendations import (
+    RecommendationContext,
+    ServiceRecommendationResult,
+    recommend_vehicle_services,
+)
 
 
 class OrchestrationOutcome(str, Enum):
@@ -34,6 +39,7 @@ class OrchestratedCapability(str, Enum):
     """Capabilities the orchestrator can currently invoke."""
 
     STORED_VEHICLE_MAINTENANCE = "stored_vehicle_maintenance"
+    SERVICE_RECOMMENDATION = "service_recommendation"
     SUPPORT_KNOWLEDGE = "support_knowledge"
     HUMAN_HANDOFF = "human_handoff"
     EXPERIMENTAL_PREDICTIVE_MAINTENANCE_COMPARISON = (
@@ -78,6 +84,7 @@ class OrchestrationResult:
     experimental_comparison_result: MaintenancePredictionComparison | None
     missing_context: tuple[OrchestrationContextField, ...]
     message: str
+    recommendation_result: ServiceRecommendationResult | None = None
 
 
 class StoredVehicleMaintenanceService(Protocol):
@@ -98,6 +105,20 @@ class SupportKnowledgeService(Protocol):
 
     def answer_question(self, question: str) -> GroundedAnswer:
         """Answer one support question through the existing RAG pipeline."""
+        ...
+
+
+class ServiceRecommendationCapability(Protocol):
+    """Callable boundary for deterministic stored-vehicle recommendations."""
+
+    def __call__(
+        self,
+        session: Session,
+        vehicle_id: int,
+        evaluation_date: date,
+        recommendation_context: RecommendationContext,
+    ) -> ServiceRecommendationResult:
+        """Return ordered service types without changing maintenance status."""
         ...
 
 
@@ -129,6 +150,7 @@ def orchestrate_user_request(
     context: OrchestrationContext | None = None,
     *,
     maintenance_service: StoredVehicleMaintenanceService | None = None,
+    recommendation_service: ServiceRecommendationCapability | None = None,
     rag_service: SupportKnowledgeService | None = None,
     escalation_service: HumanHandoffService | None = None,
     predictive_comparison_service: (
@@ -150,6 +172,12 @@ def orchestrate_user_request(
             user_message,
             routing_decision,
             rag_service,
+        )
+    if routing_decision.intent is RoutingIntent.SERVICE_RECOMMENDATION:
+        return _execute_service_recommendation(
+            routing_decision,
+            resolved_context,
+            recommendation_service,
         )
     if routing_decision.intent is RoutingIntent.HUMAN_HANDOFF:
         return _execute_human_handoff(
@@ -226,6 +254,57 @@ def _missing_maintenance_context(
         (OrchestrationContextField.DATABASE_SESSION, context.session),
     )
     return tuple(field for field, value in required_values if value is None)
+
+
+def _execute_service_recommendation(
+    routing_decision: RoutingDecision,
+    context: OrchestrationContext,
+    recommendation_service: ServiceRecommendationCapability | None,
+) -> OrchestrationResult:
+    missing_context = _missing_maintenance_context(context)
+    if missing_context:
+        return OrchestrationResult(
+            routing_decision=routing_decision,
+            outcome=OrchestrationOutcome.CONTEXT_REQUIRED,
+            invoked_capability=None,
+            maintenance_result=None,
+            support_result=None,
+            escalation_result=None,
+            experimental_comparison_result=None,
+            missing_context=missing_context,
+            message="Service recommendation requires stored vehicle context.",
+        )
+
+    session = context.session
+    vehicle_id = context.vehicle_id
+    evaluation_date = context.evaluation_date
+    if session is None or vehicle_id is None or evaluation_date is None:
+        raise RuntimeError("Recommendation context validation was inconsistent")
+
+    service = recommendation_service or recommend_vehicle_services
+    recommendation_context = (
+        RecommendationContext.LONG_TRIP
+        if "long trip" in routing_decision.normalized_request
+        else RecommendationContext.GENERAL
+    )
+    recommendation_result = service(
+        session=session,
+        vehicle_id=vehicle_id,
+        evaluation_date=evaluation_date,
+        recommendation_context=recommendation_context,
+    )
+    return OrchestrationResult(
+        routing_decision=routing_decision,
+        outcome=OrchestrationOutcome.EXECUTED,
+        invoked_capability=OrchestratedCapability.SERVICE_RECOMMENDATION,
+        maintenance_result=None,
+        support_result=None,
+        escalation_result=None,
+        experimental_comparison_result=None,
+        missing_context=(),
+        message="Deterministic service recommendations were evaluated.",
+        recommendation_result=recommendation_result,
+    )
 
 
 def _execute_support_knowledge(

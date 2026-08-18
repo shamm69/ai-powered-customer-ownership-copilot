@@ -45,6 +45,21 @@ def test_clear_support_knowledge_intent(request_text: str) -> None:
 @pytest.mark.parametrize(
     "request_text",
     [
+        "What service do I need?",
+        "Recommend a service for my vehicle.",
+        "What should I check before a long trip?",
+    ],
+)
+def test_clear_service_recommendation_intent(request_text: str) -> None:
+    decision = classify_routing_intent(request_text)
+
+    assert decision.intent is RoutingIntent.SERVICE_RECOMMENDATION
+    assert decision.matched_intents == (RoutingIntent.SERVICE_RECOMMENDATION,)
+
+
+@pytest.mark.parametrize(
+    "request_text",
+    [
         "Compare my maintenance status with the experimental ML model.",
         "Give me the experimental predictive maintenance probability.",
         "Use machine learning to predict my vehicle maintenance risk score.",
@@ -119,6 +134,17 @@ def test_maintenance_and_documentation_conflict_requires_clarification() -> None
         RoutingIntent.SUPPORT_KNOWLEDGE,
     )
 
+
+def test_maintenance_and_recommendation_conflict_requires_clarification() -> None:
+    decision = classify_routing_intent(
+        "Is my vehicle due for service and what service should I get?"
+    )
+
+    assert decision.intent is RoutingIntent.CLARIFICATION_REQUIRED
+    assert decision.matched_intents == (
+        RoutingIntent.STORED_VEHICLE_MAINTENANCE,
+        RoutingIntent.SERVICE_RECOMMENDATION,
+    )
 
 def test_experimental_and_documentation_conflict_requires_clarification() -> None:
     decision = classify_routing_intent(

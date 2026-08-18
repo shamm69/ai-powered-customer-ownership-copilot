@@ -8,6 +8,7 @@ class RoutingIntent(str, Enum):
     """Supported routing outcomes before any tool or service invocation."""
 
     STORED_VEHICLE_MAINTENANCE = "stored_vehicle_maintenance"
+    SERVICE_RECOMMENDATION = "service_recommendation"
     SUPPORT_KNOWLEDGE = "support_knowledge"
     EXPERIMENTAL_PREDICTIVE_MAINTENANCE = (
         "experimental_predictive_maintenance"
@@ -55,6 +56,17 @@ _MAINTENANCE_PHRASES = (
     "next maintenance due",
     "next service due",
     "service status",
+)
+
+_RECOMMENDATION_PHRASES = (
+    "before a long trip",
+    "prepare for a long trip",
+    "recommend a service",
+    "recommend service",
+    "service recommendation",
+    "what service do i need",
+    "what service should i get",
+    "what should i check before a long trip",
 )
 
 _DOCUMENTATION_PHRASES = (
@@ -150,18 +162,27 @@ def classify_routing_intent(user_request: str) -> RoutingDecision:
             "The request explicitly asks for human help or states a safety concern.",
         )
 
+    recommendation_match = _matches_service_recommendation(normalized_request)
     experimental_match = _matches_experimental_predictive_maintenance(
         normalized_request
     )
     support_match = _matches_support_knowledge(normalized_request)
 
     if experimental_match:
-        if support_match:
+        conflicting_intents = tuple(
+            intent
+            for intent, matched in (
+                (RoutingIntent.SERVICE_RECOMMENDATION, recommendation_match),
+                (RoutingIntent.SUPPORT_KNOWLEDGE, support_match),
+            )
+            if matched
+        )
+        if conflicting_intents:
             return _ambiguous_decision(
                 normalized_request,
                 (
                     RoutingIntent.EXPERIMENTAL_PREDICTIVE_MAINTENANCE,
-                    RoutingIntent.SUPPORT_KNOWLEDGE,
+                    *conflicting_intents,
                 ),
             )
         return _decision(
@@ -176,6 +197,7 @@ def classify_routing_intent(user_request: str) -> RoutingDecision:
         intent
         for intent, matched in (
             (RoutingIntent.STORED_VEHICLE_MAINTENANCE, maintenance_match),
+            (RoutingIntent.SERVICE_RECOMMENDATION, recommendation_match),
             (RoutingIntent.SUPPORT_KNOWLEDGE, support_match),
         )
         if matched
@@ -187,7 +209,11 @@ def classify_routing_intent(user_request: str) -> RoutingDecision:
         reason = (
             "The request asks for stored-vehicle maintenance status."
             if intent is RoutingIntent.STORED_VEHICLE_MAINTENANCE
-            else "The request asks for automotive support information."
+            else (
+                "The request asks for a deterministic service recommendation."
+                if intent is RoutingIntent.SERVICE_RECOMMENDATION
+                else "The request asks for automotive support information."
+            )
         )
         return _decision(
             intent,
@@ -221,6 +247,10 @@ def _matches_handoff(normalized_request: str) -> bool:
 
 def _matches_stored_vehicle_maintenance(normalized_request: str) -> bool:
     return _contains_any_phrase(normalized_request, _MAINTENANCE_PHRASES)
+
+
+def _matches_service_recommendation(normalized_request: str) -> bool:
+    return _contains_any_phrase(normalized_request, _RECOMMENDATION_PHRASES)
 
 
 def _matches_support_knowledge(normalized_request: str) -> bool:

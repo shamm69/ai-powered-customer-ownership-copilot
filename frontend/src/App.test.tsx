@@ -37,6 +37,7 @@ const supportResponse: AssistantQueryResponse = {
   },
   escalation_result: null,
   experimental_comparison_result: null,
+  recommendation_result: null,
 }
 
 const maintenanceResponse: AssistantQueryResponse = {
@@ -60,6 +61,7 @@ const maintenanceResponse: AssistantQueryResponse = {
   support_result: null,
   escalation_result: null,
   experimental_comparison_result: null,
+  recommendation_result: null,
 }
 
 const handoffResponse: AssistantQueryResponse = {
@@ -82,6 +84,7 @@ const handoffResponse: AssistantQueryResponse = {
     status: 'created',
   },
   experimental_comparison_result: null,
+  recommendation_result: null,
 }
 
 const predictiveResponse: AssistantQueryResponse = {
@@ -118,6 +121,41 @@ const predictiveResponse: AssistantQueryResponse = {
       experimental_ml_binary_signal: 0,
       relationship: 'agree_negative',
     },
+  },
+  recommendation_result: null,
+}
+
+const recommendationResponse: AssistantQueryResponse = {
+  routing_decision: {
+    intent: 'service_recommendation',
+    normalized_request: 'what should i check before a long trip',
+    matched_intents: ['service_recommendation'],
+    reason: 'The request asks for a deterministic service recommendation.',
+  },
+  outcome: 'executed',
+  invoked_capability: 'service_recommendation',
+  missing_context: [],
+  message: 'Deterministic service recommendations were evaluated.',
+  maintenance_result: null,
+  support_result: null,
+  escalation_result: null,
+  experimental_comparison_result: null,
+  recommendation_result: {
+    authoritative_maintenance: {
+      status: 'not_due',
+      kilometres_travelled_since_last_service: 500,
+      kilometres_remaining: 9_500,
+      months_remaining: 11,
+      reasons: ['Scheduled maintenance is not due.'],
+    },
+    recommendations: [
+      {
+        service_type: 'pre_trip_inspection',
+        priority: 'recommended',
+        reason: 'A preventive inspection is appropriate before the stated long trip.',
+        supporting_factors: ['The customer explicitly mentioned a long trip.'],
+      },
+    ],
   },
 }
 
@@ -338,6 +376,25 @@ describe('App', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('uses the dedicated deterministic recommendation card', async () => {
+    queryAssistantMock.mockResolvedValue(recommendationResponse)
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: /prepare for a long trip/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Send question' }))
+
+    expect(queryAssistantMock).toHaveBeenCalledWith({
+      message: 'What should I check before a long trip?',
+      vehicle_id: 1,
+    })
+    expect(
+      await screen.findByLabelText('Deterministic service recommendations'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Pre-Trip Inspection' })).toBeInTheDocument()
+    expect(screen.getByText('Authoritative scheduled status')).toBeInTheDocument()
+    expect(screen.queryByText('Deterministic service recommendations were evaluated.')).not.toBeInTheDocument()
+  })
+
   it('uses the dedicated demo card for a human handoff response', async () => {
     queryAssistantMock.mockResolvedValue(handoffResponse)
     render(<App />)
@@ -486,6 +543,7 @@ describe('App', () => {
       support_result: null,
       escalation_result: null,
       experimental_comparison_result: null,
+      recommendation_result: null,
     })
     render(<App />)
 

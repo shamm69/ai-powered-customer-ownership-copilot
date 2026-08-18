@@ -29,6 +29,7 @@ const supportResponse: AssistantQueryResponse = {
   },
   escalation_result: null,
   experimental_comparison_result: null,
+  recommendation_result: null,
 }
 
 afterEach(() => {
@@ -83,6 +84,55 @@ describe('queryAssistant', () => {
       status: 404,
       detail: 'Vehicle was not found',
     })
+  })
+
+  it('validates a deterministic recommendation response', async () => {
+    const recommendationResponse: AssistantQueryResponse = {
+      routing_decision: {
+        intent: 'service_recommendation',
+        normalized_request: 'what service do i need',
+        matched_intents: ['service_recommendation'],
+        reason: 'The request asks for a deterministic service recommendation.',
+      },
+      outcome: 'executed',
+      invoked_capability: 'service_recommendation',
+      missing_context: [],
+      message: 'Deterministic service recommendations were evaluated.',
+      maintenance_result: null,
+      support_result: null,
+      escalation_result: null,
+      experimental_comparison_result: null,
+      recommendation_result: {
+        authoritative_maintenance: {
+          status: 'not_due',
+          kilometres_travelled_since_last_service: 500,
+          kilometres_remaining: 9_500,
+          months_remaining: 11,
+          reasons: ['Scheduled maintenance is not due.'],
+        },
+        recommendations: [
+          {
+            service_type: 'pre_trip_inspection',
+            priority: 'recommended',
+            reason: 'Preventive inspection before a long trip.',
+            supporting_factors: ['Explicit long-trip context.'],
+          },
+        ],
+      },
+    }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(recommendationResponse)))
+
+    const response = await queryAssistant({
+      message: 'What service do I need?',
+      vehicle_id: 1,
+    })
+
+    expect(response.invoked_capability).toBe('service_recommendation')
+    if (response.invoked_capability === 'service_recommendation') {
+      expect(response.recommendation_result.recommendations[0]?.service_type).toBe(
+        'pre_trip_inspection',
+      )
+    }
   })
 
   it('rejects a successful response with an inconsistent capability payload', async () => {

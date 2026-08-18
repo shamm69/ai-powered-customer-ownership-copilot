@@ -21,6 +21,7 @@ from app.main import (
     get_orchestration_maintenance_service,
     get_orchestration_predictive_service,
     get_orchestration_rag_service,
+    get_orchestration_recommendation_service,
 )
 from app.maintenance import MaintenanceDueResult, MaintenanceStatus
 from app.maintenance_service import (
@@ -38,6 +39,13 @@ from app.predictive_maintenance_prediction import (
     PredictiveMaintenanceFeatureInput,
 )
 from app.retrieval_confidence import RetrievalSupportStatus
+from app.service_recommendations import (
+    RecommendationContext,
+    RecommendationPriority,
+    ServiceRecommendation,
+    ServiceRecommendationResult,
+    ServiceType,
+)
 
 
 class FakeMaintenanceService:
@@ -101,6 +109,24 @@ class FakePredictiveComparisonService:
         return self.result
 
 
+class FakeRecommendationService:
+    def __init__(self, result: ServiceRecommendationResult) -> None:
+        self.result = result
+        self.calls: list[tuple[Session, int, date, RecommendationContext]] = []
+
+    def __call__(
+        self,
+        session: Session,
+        vehicle_id: int,
+        evaluation_date: date,
+        recommendation_context: RecommendationContext,
+    ) -> ServiceRecommendationResult:
+        self.calls.append(
+            (session, vehicle_id, evaluation_date, recommendation_context)
+        )
+        return self.result
+
+
 @dataclass
 class AssistantFakes:
     session: Session
@@ -108,6 +134,7 @@ class AssistantFakes:
     rag: FakeRagService
     escalation: FakeEscalationService
     predictive: FakePredictiveComparisonService
+    recommendation: FakeRecommendationService
 
 
 def maintenance_result() -> MaintenanceDueResult:
@@ -160,6 +187,20 @@ def predictive_result() -> MaintenancePredictionComparison:
     )
 
 
+def recommendation_result() -> ServiceRecommendationResult:
+    return ServiceRecommendationResult(
+        maintenance_result=maintenance_result(),
+        recommendations=(
+            ServiceRecommendation(
+                service_type=ServiceType.PRE_TRIP_INSPECTION,
+                priority=RecommendationPriority.RECOMMENDED,
+                reason="Preventive inspection before the stated long trip.",
+                supporting_factors=("Explicit long-trip context.",),
+            ),
+        ),
+    )
+
+
 def predictive_payload() -> dict[str, float]:
     return {
         "vehicle_age_years": 6.0,
@@ -181,6 +222,7 @@ def assistant_client() -> Iterator[tuple[TestClient, AssistantFakes]]:
         rag=FakeRagService(supported_answer()),
         escalation=FakeEscalationService(handoff_result()),
         predictive=FakePredictiveComparisonService(predictive_result()),
+        recommendation=FakeRecommendationService(recommendation_result()),
     )
 
     def override_db() -> Iterator[Session]:
@@ -198,6 +240,9 @@ def assistant_client() -> Iterator[tuple[TestClient, AssistantFakes]]:
     app.dependency_overrides[
         get_orchestration_predictive_service
     ] = lambda: fakes.predictive
+    app.dependency_overrides[
+        get_orchestration_recommendation_service
+    ] = lambda: fakes.recommendation
     try:
         with TestClient(app) as client:
             yield client, fakes
@@ -226,6 +271,50 @@ def test_unified_maintenance_request_executes_with_vehicle_context(
     assert body["maintenance_result"]["status"] == "due_soon"
     assert fakes.maintenance.calls == [
         (fakes.session, 42, date(2026, 8, 20))
+    ]
+
+
+def test_unified_recommendation_request_returns_typed_result(
+    assistant_client: tuple[TestClient, AssistantFakes],
+) -> None:
+    client, fakes = assistant_client
+
+    response = client.post(
+        "/assistant/query",
+        json={
+            "message": "What should I check before a long trip?",
+            "vehicle_id": 42,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["invoked_capability"] == "service_recommendation"
+    assert body["maintenance_result"] is None
+    assert body["recommendation_result"] == {
+        "authoritative_maintenance": {
+            "status": "due_soon",
+            "kilometres_travelled_since_last_service": 8000.0,
+            "kilometres_remaining": 2000.0,
+            "months_remaining": 4.0,
+            "reasons": ["Distance caused the deterministic result."],
+        },
+        "recommendations": [
+            {
+                "service_type": "pre_trip_inspection",
+                "priority": "recommended",
+                "reason": "Preventive inspection before the stated long trip.",
+                "supporting_factors": ["Explicit long-trip context."],
+            }
+        ],
+    }
+    assert fakes.recommendation.calls == [
+        (
+            fakes.session,
+            42,
+            date(2026, 8, 18),
+            RecommendationContext.LONG_TRIP,
+        )
     ]
     assert fakes.rag.questions == []
     assert fakes.escalation.calls == []
