@@ -180,7 +180,7 @@ const predictiveFieldValues = [
 
 function openPredictiveExperiment() {
   fireEvent.click(
-    screen.getByRole('button', { name: /explore predictive experiment/i }),
+    screen.getByRole('button', { name: /open model comparison/i }),
   )
 }
 
@@ -210,6 +210,8 @@ describe('App', () => {
         name: 'How can I help with your vehicle today?',
       }),
     ).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Page sections' })).toBeInTheDocument()
+    expect(screen.getByText('Automotive customer-ownership proof of concept')).toBeInTheDocument()
   })
 
   it('places a selected quick action into and focuses the assistant composer', () => {
@@ -222,16 +224,20 @@ describe('App', () => {
     expect(composer).toHaveFocus()
   })
 
-  it('opens an explicitly labelled experiment with all eight empty fields', () => {
+  it('keeps the technical preview separate and opens all eight empty fields', () => {
     render(<App />)
 
+    expect(
+      screen.queryByRole('button', { name: /predictive experiment/i }),
+    ).not.toBeInTheDocument()
     openPredictiveExperiment()
 
     expect(
-      screen.getByRole('heading', { name: 'Predictive-maintenance experiment' }),
+      screen.getByRole('heading', { name: 'Model input set' }),
     ).toBeInTheDocument()
-    expect(screen.getAllByText(/experimental/i).length).toBeGreaterThan(0)
-    expect(screen.getByText(/not live connected-vehicle telemetry/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/technical preview/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/not manual customer entry/i)).toBeInTheDocument()
+    expect(screen.getByText(/not live vehicle telemetry/i)).toBeInTheDocument()
     for (const [label, fieldName] of predictiveFieldValues) {
       expect(screen.getByRole('spinbutton', { name: label })).toHaveAttribute(
         'name',
@@ -246,8 +252,10 @@ describe('App', () => {
 
     openPredictiveExperiment()
 
-    expect(screen.getByRole('button', { name: 'Send question' })).toBeDisabled()
-    fireEvent.submit(screen.getByRole('form', { name: 'Assistant question form' }))
+    expect(
+      screen.getByRole('button', { name: 'Run experimental comparison' }),
+    ).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Run experimental comparison' }))
     expect(queryAssistantMock).not.toHaveBeenCalled()
   })
 
@@ -257,7 +265,7 @@ describe('App', () => {
 
     openPredictiveExperiment()
     completePredictiveExperimentFields()
-    fireEvent.click(screen.getByRole('button', { name: 'Send question' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Run experimental comparison' }))
 
     await waitFor(() => {
       expect(queryAssistantMock).toHaveBeenCalledWith({
@@ -278,8 +286,8 @@ describe('App', () => {
       await screen.findByLabelText('Experimental predictive maintenance comparison'),
     ).toBeInTheDocument()
     expect(
-      screen.queryByRole('heading', { name: 'Predictive-maintenance experiment' }),
-    ).not.toBeInTheDocument()
+      screen.getByRole('heading', { name: 'Model input set' }),
+    ).toBeInTheDocument()
   })
 
   it('dismisses and resets experiment mode', () => {
@@ -289,16 +297,17 @@ describe('App', () => {
     fireEvent.change(screen.getByRole('spinbutton', { name: 'Vehicle age (years)' }), {
       target: { value: '6.5' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Close predictive experiment' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Close preview' }))
 
     expect(
-      screen.queryByRole('heading', { name: 'Predictive-maintenance experiment' }),
+      screen.queryByRole('heading', { name: 'Model input set' }),
     ).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Ask the ownership assistant')).toHaveValue('')
-    expect(screen.getByLabelText('Ask the ownership assistant')).toHaveFocus()
+    expect(
+      screen.getByRole('button', { name: 'Open model comparison' }),
+    ).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('leaves experiment mode before submitting an ordinary quick action', async () => {
+  it('keeps ordinary quick actions free of experiment inputs while the lab is open', async () => {
     queryAssistantMock.mockResolvedValue(maintenanceResponse)
     render(<App />)
 
@@ -309,8 +318,8 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: /check service status/i }))
 
     expect(
-      screen.queryByRole('heading', { name: 'Predictive-maintenance experiment' }),
-    ).not.toBeInTheDocument()
+      screen.getByRole('heading', { name: 'Model input set' }),
+    ).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Send question' }))
 
     await waitFor(() => {
@@ -380,11 +389,11 @@ describe('App', () => {
     queryAssistantMock.mockResolvedValue(recommendationResponse)
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: /prepare for a long trip/i }))
+    fireEvent.click(screen.getByRole('button', { name: /plan my next service/i }))
     fireEvent.click(screen.getByRole('button', { name: 'Send question' }))
 
     expect(queryAssistantMock).toHaveBeenCalledWith({
-      message: 'What should I check before a long trip?',
+      message: 'What service should I get for my vehicle?',
       vehicle_id: 1,
     })
     expect(
@@ -411,14 +420,13 @@ describe('App', () => {
     expect(screen.queryByText('A demo human handoff was created.')).not.toBeInTheDocument()
   })
 
-  it('uses the dedicated comparison card for an experimental predictive response', async () => {
+  it('renders predictive results only inside the technical preview', async () => {
     queryAssistantMock.mockResolvedValue(predictiveResponse)
     render(<App />)
 
-    fireEvent.change(screen.getByLabelText('Ask the ownership assistant'), {
-      target: { value: 'Show the experimental maintenance comparison.' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'Send question' }))
+    openPredictiveExperiment()
+    completePredictiveExperimentFields()
+    fireEvent.click(screen.getByRole('button', { name: 'Run experimental comparison' }))
 
     expect(
       await screen.findByLabelText('Experimental predictive maintenance comparison'),
@@ -428,6 +436,7 @@ describe('App', () => {
     )
     expect(screen.getByLabelText('Authoritative scheduled maintenance result')).toBeInTheDocument()
     expect(screen.getByText('12%')).toBeInTheDocument()
+    expect(screen.getByText(/does not produce a combined customer decision/i)).toBeInTheDocument()
     expect(screen.queryByText('The experimental comparison was completed.')).not.toBeInTheDocument()
   })
 
@@ -439,7 +448,7 @@ describe('App', () => {
 
     openPredictiveExperiment()
     completePredictiveExperimentFields()
-    fireEvent.click(screen.getByRole('button', { name: 'Send question' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Run experimental comparison' }))
 
     expect(
       await screen.findByText('That capability is temporarily unavailable. Please try again later.'),
@@ -449,7 +458,7 @@ describe('App', () => {
       screen.queryByLabelText('Experimental predictive maintenance comparison'),
     ).not.toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: 'Predictive-maintenance experiment' }),
+      screen.getByRole('heading', { name: 'Model input set' }),
     ).toBeInTheDocument()
   })
 
@@ -559,5 +568,35 @@ describe('App', () => {
     } else {
       expect(screen.getByText('A selected vehicle')).toBeInTheDocument()
     }
+  })
+
+  it('directs missing experiment inputs to the separate Technical Preview', async () => {
+    queryAssistantMock.mockResolvedValue({
+      routing_decision: {
+        intent: 'experimental_predictive_maintenance',
+        normalized_request: 'show the experimental comparison',
+        matched_intents: ['experimental_predictive_maintenance'],
+        reason: 'The request explicitly asks for the experimental comparison.',
+      },
+      outcome: 'context_required',
+      invoked_capability: null,
+      missing_context: ['predictive_maintenance_input'],
+      message: 'The experimental comparison requires its model inputs.',
+      maintenance_result: null,
+      support_result: null,
+      escalation_result: null,
+      experimental_comparison_result: null,
+      recommendation_result: null,
+    })
+    render(<App />)
+
+    fireEvent.change(screen.getByLabelText('Ask the ownership assistant'), {
+      target: { value: 'Show the experimental comparison.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Send question' }))
+
+    expect(
+      await screen.findByRole('link', { name: /open the technical preview/i }),
+    ).toHaveAttribute('href', '#experimental-lab')
   })
 })

@@ -11,10 +11,10 @@ interface PredictiveComparisonCardProps {
 }
 
 const relationshipLabels: Record<MaintenanceSignalRelationship, string> = {
-  agree_negative: 'Both comparison signals are negative',
-  agree_positive: 'Both comparison signals are positive',
-  deterministic_only_positive: 'Deterministic signal positive; ML signal negative',
-  ml_only_positive: 'Deterministic signal negative; ML signal positive',
+  agree_negative: 'Both signals indicate no near-term maintenance flag',
+  agree_positive: 'Both signals indicate a maintenance flag',
+  deterministic_only_positive: 'Scheduled rules flag maintenance; the model does not',
+  ml_only_positive: 'The model flags maintenance; scheduled rules do not',
 }
 
 const percentFormatter = new Intl.NumberFormat('en-US', {
@@ -23,7 +23,7 @@ const percentFormatter = new Intl.NumberFormat('en-US', {
 })
 
 function signalLabel(signal: BinarySignal) {
-  return signal === 1 ? 'Positive (1)' : 'Negative (0)'
+  return signal === 1 ? 'Flagged (1)' : 'Not flagged (0)'
 }
 
 export function PredictiveComparisonCard({ result }: PredictiveComparisonCardProps) {
@@ -37,8 +37,8 @@ export function PredictiveComparisonCard({ result }: PredictiveComparisonCardPro
           <Beaker size={22} strokeWidth={1.8} />
         </span>
         <div>
-          <span className="predictive-comparison-card__eyebrow">Experimental analysis</span>
-          <h3>Predictive-maintenance comparison</h3>
+          <span className="predictive-comparison-card__eyebrow">Technical preview</span>
+          <h3>Experimental model comparison</h3>
         </div>
         <span
           aria-label="Experimental model output"
@@ -49,8 +49,8 @@ export function PredictiveComparisonCard({ result }: PredictiveComparisonCardPro
       </header>
 
       <p className="predictive-comparison-card__intro">
-        A side-by-side view of authoritative scheduled maintenance and a controlled
-        synthetic-data model signal. No merged maintenance decision is produced.
+        A side-by-side technical comparison of scheduled-maintenance rules and a model
+        trained on synthetic data. It does not produce a combined customer decision.
       </p>
 
       <section
@@ -76,12 +76,12 @@ export function PredictiveComparisonCard({ result }: PredictiveComparisonCardPro
             <span>Experimental</span>
             <h4 id="experimental-signal-heading">90-day ML signal</h4>
           </div>
-          <small>Artifact schema v{result.experimental_ml.artifact_schema_version}</small>
+          <small>Model artifact v{result.experimental_ml.artifact_schema_version}</small>
         </div>
 
         <div className="predictive-comparison-card__metrics">
           <div>
-            <span>Model signal</span>
+            <span>90-day model flag</span>
             <strong>
               {signalLabel(
                 result.experimental_ml.maintenance_needed_within_90_days_prediction,
@@ -89,7 +89,7 @@ export function PredictiveComparisonCard({ result }: PredictiveComparisonCardPro
             </strong>
           </div>
           <div>
-            <span>Positive-class probability</span>
+            <span>Model probability</span>
             <strong>
               {percentFormatter.format(result.experimental_ml.positive_class_probability)}
             </strong>

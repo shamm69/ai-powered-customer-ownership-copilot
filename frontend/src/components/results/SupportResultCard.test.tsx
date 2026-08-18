@@ -30,9 +30,10 @@ describe('SupportResultCard', () => {
     expect(screen.getByText(supportedResult.answer)).toBeInTheDocument()
     expect(screen.getByText('Warning Indicator Guide')).toBeInTheDocument()
     expect(screen.getByText('Responding to dashboard warnings')).toBeInTheDocument()
+    expect(screen.getAllByText('Reference details')).toHaveLength(2)
     expect(
       screen.getByText(
-        'Source warning-indicators · Chunk warning-indicators-responding-01',
+        'Source warning-indicators · Passage warning-indicators-responding-01',
       ),
     ).toBeInTheDocument()
   })

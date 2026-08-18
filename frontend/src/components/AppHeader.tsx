@@ -1,4 +1,4 @@
-import { CarFront, CircleUserRound, ShieldCheck } from 'lucide-react'
+import { CarFront, CircleUserRound } from 'lucide-react'
 
 export function AppHeader() {
   return (
@@ -13,14 +13,16 @@ export function AppHeader() {
         </span>
       </a>
 
+      <nav className="primary-nav" aria-label="Page sections">
+        <a href="#overview">Overview</a>
+        <a href="#assistant">Ask Copilot</a>
+        <a href="#experimental-lab">Technical preview</a>
+      </nav>
+
       <div className="header-context" aria-label="Current workspace">
         <span className="demo-badge">
           <span className="demo-badge__dot" aria-hidden="true" />
           Demo workspace
-        </span>
-        <span className="header-trust">
-          <ShieldCheck size={16} aria-hidden="true" />
-          Deterministic service status
         </span>
         <span className="header-divider" aria-hidden="true" />
         <span className="owner-chip">

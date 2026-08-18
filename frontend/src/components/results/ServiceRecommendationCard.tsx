@@ -46,11 +46,11 @@ export function ServiceRecommendationCard({
         </span>
         <div>
           <span className="recommendation-result-card__eyebrow">
-            Recommended next service
+            Service recommendation
           </span>
-          <h3>Deterministic service guidance</h3>
+          <h3>What to consider next</h3>
         </div>
-        <span className="recommendation-result-card__method">Demo MVP rules</span>
+        <span className="recommendation-result-card__method">Explainable demo rules</span>
       </header>
 
       <div className="recommendation-result-card__authority">
@@ -82,8 +82,9 @@ export function ServiceRecommendationCard({
       </ol>
 
       <p className="recommendation-result-card__note">
-        Service suggestions use explainable demo rules and do not diagnose a
-        mechanical fault or replace the authoritative maintenance status.
+        These suggestions use explainable demo/MVP rules—not manufacturer-authoritative
+        schedules. They do not diagnose a fault or replace the scheduled-maintenance
+        status.
       </p>
     </article>
   )

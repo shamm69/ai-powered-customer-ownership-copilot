@@ -68,7 +68,7 @@ export function MaintenanceResultCard({ result }: MaintenanceResultCardProps) {
       <header className="maintenance-result-card__header">
         <div>
           <span className="maintenance-result-card__eyebrow">
-            Authoritative service status
+            Scheduled maintenance
           </span>
           <div className="maintenance-result-card__status">
             <span className="maintenance-result-card__status-icon" aria-hidden="true">
@@ -77,7 +77,7 @@ export function MaintenanceResultCard({ result }: MaintenanceResultCardProps) {
             <h3>{presentation.label}</h3>
           </div>
         </div>
-        <span className="maintenance-result-card__method">Scheduled maintenance</span>
+        <span className="maintenance-result-card__method">Authoritative status</span>
       </header>
 
       <p className="maintenance-result-card__interpretation">

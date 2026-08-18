@@ -26,7 +26,7 @@ export function HandoffResultCard({ result }: HandoffResultCardProps) {
         </span>
         <div>
           <span className="handoff-result-card__eyebrow">Human support</span>
-          <h3>Demo handoff created</h3>
+          <h3>Demo support handoff created</h3>
         </div>
         <span className="handoff-result-card__demo-label">Demo handoff</span>
       </header>

@@ -1,4 +1,4 @@
-import { Beaker, X } from 'lucide-react'
+import { Beaker } from 'lucide-react'
 import {
   predictiveFields,
   validatePredictiveExperimentDraft,
@@ -10,14 +10,12 @@ interface PredictiveExperimentPanelProps {
   disabled: boolean
   draft: PredictiveExperimentDraft
   onChange: (field: PredictiveField, value: string) => void
-  onDismiss: () => void
 }
 
 export function PredictiveExperimentPanel({
   disabled,
   draft,
   onChange,
-  onDismiss,
 }: PredictiveExperimentPanelProps) {
   const errors = validatePredictiveExperimentDraft(draft)
   const completedFieldCount = predictiveFields.filter(
@@ -34,22 +32,14 @@ export function PredictiveExperimentPanel({
           <Beaker size={20} strokeWidth={1.8} />
         </span>
         <div>
-          <span>Experimental · Synthetic inputs</span>
-          <h3 id="predictive-experiment-title">Predictive-maintenance experiment</h3>
+          <span>Manual demonstration inputs</span>
+          <h3 id="predictive-experiment-title">Model input set</h3>
         </div>
-        <button
-          aria-label="Close predictive experiment"
-          disabled={disabled}
-          onClick={onDismiss}
-          type="button"
-        >
-          <X size={18} aria-hidden="true" />
-        </button>
       </header>
 
       <p className="predictive-experiment-panel__description">
-        Enter all eight synthetic demo inputs. They are not live connected-vehicle
-        telemetry, and the experiment does not override scheduled maintenance.
+        Enter all eight values used by the controlled synthetic-data experiment. They
+        are not live vehicle telemetry and do not affect scheduled maintenance.
       </p>
 
       <div className="predictive-experiment-panel__fields">

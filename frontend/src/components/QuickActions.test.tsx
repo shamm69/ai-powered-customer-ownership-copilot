@@ -6,35 +6,28 @@ describe('QuickActions', () => {
   it.each([
     ['Check service status', 'Is my vehicle due for service?'],
     ['Explain a warning light', 'What does a warning light mean?'],
-    ['Prepare for a long trip', 'What should I check before a long trip?'],
+    ['Plan my next service', 'What service should I get for my vehicle?'],
     ['Talk to human support', 'I want to speak to a human agent.'],
   ])('uses a canonical routable prompt for %s', (label, prompt) => {
     const onSelect = vi.fn()
 
     render(
-      <QuickActions onSelect={onSelect} onSelectExperiment={vi.fn()} />,
+      <QuickActions onSelect={onSelect} />,
     )
     fireEvent.click(screen.getByRole('button', { name: new RegExp(label, 'i') }))
 
     expect(onSelect).toHaveBeenCalledWith(prompt)
   })
 
-  it('keeps the predictive shortcut explicit and separately handled', () => {
+  it('keeps the technical experiment out of customer quick actions', () => {
     const onSelect = vi.fn()
-    const onSelectExperiment = vi.fn()
 
-    render(
-      <QuickActions
-        onSelect={onSelect}
-        onSelectExperiment={onSelectExperiment}
-      />,
-    )
-    fireEvent.click(
-      screen.getByRole('button', { name: /explore predictive experiment/i }),
-    )
+    render(<QuickActions onSelect={onSelect} />)
 
-    expect(onSelectExperiment).toHaveBeenCalledOnce()
+    expect(screen.getAllByRole('button')).toHaveLength(4)
+    expect(
+      screen.queryByRole('button', { name: /predictive experiment/i }),
+    ).not.toBeInTheDocument()
     expect(onSelect).not.toHaveBeenCalled()
-    expect(screen.getByText('Experimental')).toBeInTheDocument()
   })
 })

@@ -12,11 +12,6 @@ import type {
   AssistantQueryResponse,
   OrchestrationOutcome,
 } from '../types/assistant'
-import { PredictiveExperimentPanel } from './PredictiveExperimentPanel'
-import {
-  parsePredictiveExperimentDraft,
-  type PredictiveExperimentDraft,
-} from './predictiveExperiment'
 import { HandoffResultCard } from './results/HandoffResultCard'
 import { MaintenanceResultCard } from './results/MaintenanceResultCard'
 import { PredictiveComparisonCard } from './results/PredictiveComparisonCard'
@@ -34,18 +29,12 @@ interface AssistantWorkspaceProps {
   onPromptSelect: (prompt: string) => void
   onSubmit: () => void
   onRetry: () => void
-  predictiveExperimentDraft: PredictiveExperimentDraft | null
-  onPredictiveExperimentDismiss: () => void
-  onPredictiveExperimentFieldChange: (
-    field: keyof PredictiveExperimentDraft,
-    value: string,
-  ) => void
 }
 
 const suggestedQuestions = [
   'Is my vehicle due for service?',
+  'What service should I get for my vehicle?',
   'What does a warning light mean?',
-  'What should I check before a long trip?',
 ]
 
 const outcomeLabels: Record<OrchestrationOutcome, string> = {
@@ -67,14 +56,8 @@ export function AssistantWorkspace({
   onPromptSelect,
   onSubmit,
   onRetry,
-  predictiveExperimentDraft,
-  onPredictiveExperimentDismiss,
-  onPredictiveExperimentFieldChange,
 }: AssistantWorkspaceProps) {
-  const predictiveInputIsValid = predictiveExperimentDraft
-    ? parsePredictiveExperimentDraft(predictiveExperimentDraft) !== null
-    : true
-  const canSubmit = draft.trim().length > 0 && predictiveInputIsValid && !isLoading
+  const canSubmit = draft.trim().length > 0 && !isLoading
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -86,7 +69,7 @@ export function AssistantWorkspace({
   }
 
   return (
-    <section className="assistant-panel" aria-labelledby="assistant-title">
+    <section className="assistant-panel" id="assistant" aria-labelledby="assistant-title">
       <div className="assistant-panel__topline">
         <span className="assistant-identity" id="assistant-title">
           <span className="assistant-identity__icon" aria-hidden="true">
@@ -111,15 +94,6 @@ export function AssistantWorkspace({
       ) : (
         <AssistantWelcome />
       )}
-
-      {predictiveExperimentDraft ? (
-        <PredictiveExperimentPanel
-          disabled={isLoading}
-          draft={predictiveExperimentDraft}
-          onChange={onPredictiveExperimentFieldChange}
-          onDismiss={onPredictiveExperimentDismiss}
-        />
-      ) : null}
 
       <div className="suggested-prompts" aria-label="Suggested questions">
         {suggestedQuestions.map((question) => (
@@ -152,7 +126,7 @@ export function AssistantWorkspace({
           id="assistant-question"
           onChange={(event) => onDraftChange(event.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask about your vehicle, maintenance, or support…"
+          placeholder="Ask about maintenance, service recommendations, or vehicle support…"
           ref={inputRef}
           rows={3}
           value={draft}
@@ -188,8 +162,8 @@ function AssistantWelcome() {
       <p className="section-label">Here for the road ahead</p>
       <h2>How can I help with your vehicle today?</h2>
       <p>
-        Ask about scheduled maintenance and support documentation, or create a
-        clearly labelled demo handoff.
+        Check scheduled maintenance, understand what service to consider next, search
+        the support guide, or ask for human help.
       </p>
     </div>
   )
@@ -283,6 +257,11 @@ function AssistantResponseSummary({ response }: { response: AssistantQueryRespon
               <li key={field}>{missingContextLabels[field]}</li>
             ))}
           </ul>
+          {response.missing_context.includes('predictive_maintenance_input') ? (
+            <a href="#experimental-lab">
+              Open the Technical Preview to enter the model demonstration inputs.
+            </a>
+          ) : null}
         </div>
       ) : null}
       {response.outcome === 'unsupported' ? (
@@ -307,6 +286,6 @@ const missingContextLabels = {
   database_session: 'The maintenance service connection',
   rag_service: 'The support knowledge service',
   escalation_service: 'The demo handoff service',
-  predictive_maintenance_input: 'All eight experimental input values',
+  predictive_maintenance_input: 'The eight Technical Preview model inputs',
   predictive_comparison_service: 'The experimental comparison service',
 } as const

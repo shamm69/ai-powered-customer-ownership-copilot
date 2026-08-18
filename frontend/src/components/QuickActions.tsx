@@ -1,6 +1,5 @@
 import {
   CircleHelp,
-  FlaskConical,
   Headphones,
   Route,
   ShieldCheck,
@@ -12,13 +11,11 @@ interface QuickAction {
   description: string
   prompt: string
   icon: LucideIcon
-  experimental?: boolean
 }
 
 interface QuickActionsProps {
   disabled?: boolean
   onSelect: (prompt: string) => void
-  onSelectExperiment: () => void
 }
 
 const quickActions: QuickAction[] = [
@@ -35,9 +32,9 @@ const quickActions: QuickAction[] = [
     icon: CircleHelp,
   },
   {
-    label: 'Prepare for a long trip',
-    description: 'See practical vehicle checks',
-    prompt: 'What should I check before a long trip?',
+    label: 'Plan my next service',
+    description: 'Get a clear service recommendation',
+    prompt: 'What service should I get for my vehicle?',
     icon: Route,
   },
   {
@@ -46,47 +43,36 @@ const quickActions: QuickAction[] = [
     prompt: 'I want to speak to a human agent.',
     icon: Headphones,
   },
-  {
-    label: 'Explore predictive experiment',
-    description: 'Compare rule and model signals with synthetic inputs',
-    prompt: 'Show the experimental predictive maintenance comparison.',
-    icon: FlaskConical,
-    experimental: true,
-  },
 ]
 
 export function QuickActions({
   disabled = false,
   onSelect,
-  onSelectExperiment,
 }: QuickActionsProps) {
   return (
     <section className="quick-actions" aria-labelledby="quick-actions-title">
       <div className="section-heading">
         <div>
-          <p className="section-label">Shortcuts</p>
-          <h2 id="quick-actions-title">Quick actions</h2>
+          <p className="section-label">Start here</p>
+          <h2 id="quick-actions-title">What would you like to do?</h2>
         </div>
         <span>Choose a starting point</span>
       </div>
 
       <div className="quick-actions__grid">
-        {quickActions.map(({ label, description, prompt, icon: Icon, experimental }) => (
+        {quickActions.map(({ label, description, prompt, icon: Icon }) => (
           <button
-            className={`quick-action${experimental ? ' quick-action--experimental' : ''}`}
+            className="quick-action"
             disabled={disabled}
             key={label}
-            onClick={() => (experimental ? onSelectExperiment() : onSelect(prompt))}
+            onClick={() => onSelect(prompt)}
             type="button"
           >
             <span className="quick-action__icon" aria-hidden="true">
               <Icon size={19} strokeWidth={1.8} />
             </span>
             <span>
-              <span className="quick-action__title">
-                <strong>{label}</strong>
-                {experimental ? <em>Experimental</em> : null}
-              </span>
+              <span className="quick-action__title"><strong>{label}</strong></span>
               <small>{description}</small>
             </span>
           </button>

@@ -46,11 +46,11 @@ describe('PredictiveComparisonCard', () => {
   it('renders the exact experimental probability, threshold, signals, and metadata', () => {
     render(<PredictiveComparisonCard result={comparisonResult} />)
 
-    expect(screen.getByText('Positive (1)')).toBeInTheDocument()
+    expect(screen.getByText('Flagged (1)')).toBeInTheDocument()
     expect(screen.getByText('74.2%')).toBeInTheDocument()
     expect(screen.getByText('19%')).toBeInTheDocument()
-    expect(screen.getByText('Artifact schema v1')).toBeInTheDocument()
-    expect(screen.getByText('Both comparison signals are positive')).toBeInTheDocument()
+    expect(screen.getByText('Model artifact v1')).toBeInTheDocument()
+    expect(screen.getByText('Both signals indicate a maintenance flag')).toBeInTheDocument()
     expect(screen.getByText('Deterministic signal 1 · ML signal 1')).toBeInTheDocument()
   })
 

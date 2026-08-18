@@ -62,9 +62,12 @@ export function SupportResultCard({ result }: SupportResultCardProps) {
               <div>
                 <strong>{source.document_title}</strong>
                 <span>{source.section_title}</span>
-                <small>
-                  Source {source.source_id} · Chunk {source.chunk_id}
-                </small>
+                <details>
+                  <summary>Reference details</summary>
+                  <small>
+                    Source {source.source_id} · Passage {source.chunk_id}
+                  </small>
+                </details>
               </div>
             </li>
           ))}

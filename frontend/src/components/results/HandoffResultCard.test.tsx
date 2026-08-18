@@ -15,7 +15,9 @@ describe('HandoffResultCard', () => {
     render(<HandoffResultCard result={handoffResult} />)
 
     expect(screen.getByLabelText('Demo human handoff result')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Demo handoff created' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Demo support handoff created' }),
+    ).toBeInTheDocument()
     expect(screen.getByText('DEMO-OWNERSHIP-1042')).toBeInTheDocument()
     expect(screen.getByText('Created')).toBeInTheDocument()
     expect(screen.getByText('Human support requested')).toBeInTheDocument()
