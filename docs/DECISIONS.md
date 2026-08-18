@@ -256,3 +256,35 @@ Rejected:
 - Inventing faults, sensor readings, prices, dealer packages, or replacement
   advice
 - Combining maintenance status and recommendations into a hybrid/final status
+
+---
+
+## Decision 11: Use bounded structured application logging
+
+Date:
+2026-08-18
+
+Decision:
+
+Use one standard-library JSON application logger plus FastAPI request
+middleware. Assign or safely reuse an `X-Request-ID`, expose it in responses,
+and record request lifecycle, assistant routing outcomes, runtime bootstrap,
+readiness, shutdown, and unexpected failure events. Configure severity with
+`LOG_LEVEL` and fall back clearly to `INFO` for invalid values.
+
+Operational logs contain only an approved metadata field set. They exclude
+request bodies, assistant messages, predictive features, retrieved text,
+generated answers, handoff summaries, database records, and secrets.
+
+Reason:
+
+The deployed proof of concept needs enough production diagnostics to correlate
+requests and understand routing, outcomes, latency, and startup health without
+adding infrastructure or collecting customer content.
+
+Rejected:
+
+- Heavy metrics, tracing, collector, or external logging infrastructure
+- Database-backed audit logging
+- Logging request/response bodies or capability content
+- Swallowing unexpected exceptions to manufacture successful responses

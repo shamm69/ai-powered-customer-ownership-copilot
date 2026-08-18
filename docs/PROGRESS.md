@@ -2,12 +2,12 @@
 
 ## Current Phase
 
-Phase 6 in progress — deterministic service recommendations complete
+Phase 6 in progress — lightweight application observability complete
 
 ## Current Task
 
-Phase 6.4.1 — Deterministic service recommendations and quick-action routing
-hardening are complete. Phase 6 remains in progress.
+Phase 6.5 — Lightweight observability is complete. Phase 6 remains in
+progress.
 
 ## Authoritative Roadmap
 
@@ -27,6 +27,21 @@ history were not renamed or redone; Phase 2.5 is not an additional permanent
 roadmap phase.
 
 ## Completed
+
+### 2026-08-18 — Phase 6.5
+
+- Added standard-library JSON application logs with configurable `LOG_LEVEL`
+  and a safe `INFO` fallback for invalid values.
+- Added request lifecycle middleware that assigns or safely reuses an
+  `X-Request-ID`, returns it to clients, and records method, path, status, and
+  monotonic duration without recording request bodies.
+- Added structured assistant outcome metadata for routed intent, invoked
+  capability, orchestration outcome, and missing context while excluding user
+  messages, predictive inputs, grounded content, and handoff summaries.
+- Added concise startup, runtime-bootstrap, readiness, shutdown, and unexpected
+  request-failure events without changing API error behavior.
+- Completed the bounded observability work with 460 backend tests passing and
+  a clean `pip check`. Phase 6 remains in progress.
 
 ### 2026-08-18 — Phase 6.4.1
 
@@ -240,8 +255,8 @@ roadmap phase.
 - Phase 3 completed.
 - Phase 4 completed.
 - Phase 5 completed.
-- Phase 6 is in progress; the Phase 6.1 deployment-readiness foundation is
-  complete, while Dockerization and deployment have not started.
+- Phase 6 is in progress; deployment bootstrap, the production backend Docker
+  image, and lightweight application observability are complete.
 - FastAPI backend foundation is working and tested.
 - The original deterministic maintenance evaluator remains independent of persistence and unchanged.
 - Maintenance evaluation is exposed through a typed FastAPI endpoint.
@@ -254,7 +269,7 @@ roadmap phase.
   decision and uses an ignored local artifact with threshold `0.19`.
 - `POST /assistant/query` exposes deterministic routing, explicit orchestration,
   and structured capability-specific results without replacing direct APIs.
-- Complete backend test suite has 452 tests passing in the repaired
+- Complete backend test suite has 460 tests passing in the repaired
   project-local Python 3.13.5 `.venv`; `pip check` is clean.
 - Complete frontend suite has 46 tests passing, with typecheck, lint, and the
   Vite production build also passing.

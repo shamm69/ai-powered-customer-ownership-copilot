@@ -39,6 +39,10 @@ from app.maintenance_service import (
     VehicleNotFoundError,
     evaluate_vehicle_maintenance,
 )
+from app.observability import (
+    RequestObservabilityMiddleware,
+    configure_application_logging,
+)
 from app.orchestrator import (
     OrchestratedCapability,
     OrchestrationContext,
@@ -80,6 +84,8 @@ RAG_TOP_K_ENVIRONMENT_VARIABLE = "RAG_TOP_K"
 RAG_MINIMUM_SIMILARITY_ENVIRONMENT_VARIABLE = "RAG_MINIMUM_SIMILARITY"
 DEFAULT_RAG_TOP_K = 3
 DEFAULT_RAG_MINIMUM_SIMILARITY = 0.5
+
+application_logger = configure_application_logging()
 
 
 class MaintenanceEvaluationRequest(BaseModel):
@@ -552,8 +558,49 @@ def _similarity_environment_value(name: str, default: float) -> float:
 @asynccontextmanager
 async def application_lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Prepare fresh runtime state before accepting requests."""
-    initialize_runtime()
-    yield
+    application_logger.info(
+        "application_startup_beginning",
+        extra={"event": "application_startup_beginning"},
+    )
+    try:
+        bootstrap_result = initialize_runtime()
+    except Exception as exc:
+        application_logger.error(
+            "application_startup_failed",
+            extra={
+                "event": "application_startup_failed",
+                "exception_type": type(exc).__name__,
+            },
+        )
+        raise
+
+    application_logger.info(
+        "database_bootstrap_complete",
+        extra={
+            "event": "database_bootstrap_complete",
+            "database_seeded": bootstrap_result.database_seeded,
+        },
+    )
+    application_logger.info(
+        "predictive_artifact_prepared",
+        extra={
+            "event": "predictive_artifact_prepared",
+            "predictive_artifact_created": (
+                bootstrap_result.predictive_artifact_created
+            ),
+        },
+    )
+    application_logger.info(
+        "application_ready",
+        extra={"event": "application_ready"},
+    )
+    try:
+        yield
+    finally:
+        application_logger.info(
+            "application_shutdown",
+            extra={"event": "application_shutdown"},
+        )
 
 
 app = FastAPI(
@@ -562,6 +609,10 @@ app = FastAPI(
     lifespan=application_lifespan,
 )
 configure_cors(app)
+app.add_middleware(
+    RequestObservabilityMiddleware,
+    logger=application_logger,
+)
 
 
 @app.exception_handler(RequestValidationError)
@@ -594,7 +645,8 @@ def health_check() -> dict[str, str]:
     tags=["assistant"],
 )
 def query_assistant(
-    request: AssistantQueryRequest,
+    assistant_request: AssistantQueryRequest,
+    http_request: Request,
     session: Session = Depends(get_db),
     default_evaluation_date: date = Depends(get_evaluation_date),
     maintenance_service: RuntimeStoredMaintenanceService = Depends(
@@ -613,10 +665,10 @@ def query_assistant(
 ) -> AssistantQueryResponse:
     """Expose deterministic routing and existing capabilities through one API."""
     predictive_input = None
-    if request.predictive_maintenance_input is not None:
+    if assistant_request.predictive_maintenance_input is not None:
         try:
             predictive_input = PredictiveMaintenanceFeatureInput(
-                **request.predictive_maintenance_input.model_dump()
+                **assistant_request.predictive_maintenance_input.model_dump()
             )
         except ValueError as exc:
             raise HTTPException(
@@ -625,14 +677,16 @@ def query_assistant(
             ) from exc
 
     context = OrchestrationContext(
-        vehicle_id=request.vehicle_id,
-        evaluation_date=request.evaluation_date or default_evaluation_date,
+        vehicle_id=assistant_request.vehicle_id,
+        evaluation_date=(
+            assistant_request.evaluation_date or default_evaluation_date
+        ),
         session=session,
         predictive_maintenance_input=predictive_input,
     )
     try:
         result = orchestrate_user_request(
-            request.message,
+            assistant_request.message,
             context,
             maintenance_service=maintenance_service,
             recommendation_service=recommendation_service,
@@ -680,7 +734,23 @@ def query_assistant(
             detail="Assistant query could not be completed",
         ) from exc
 
-    return assistant_response(result)
+    response = assistant_response(result)
+    application_logger.info(
+        "assistant_request_completed",
+        extra={
+            "event": "assistant_request_completed",
+            "request_id": getattr(http_request.state, "request_id", None),
+            "routed_intent": result.routing_decision.intent.value,
+            "invoked_capability": (
+                result.invoked_capability.value
+                if result.invoked_capability is not None
+                else None
+            ),
+            "outcome": result.outcome.value,
+            "context_missing": bool(result.missing_context),
+        },
+    )
+    return response
 
 
 @app.post(

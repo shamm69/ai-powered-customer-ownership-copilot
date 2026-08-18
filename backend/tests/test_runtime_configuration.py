@@ -19,6 +19,7 @@ from app.runtime_configuration import (
     get_database_path,
     get_predictive_artifact_directory,
 )
+from app.observability import REQUEST_ID_HEADER
 
 
 def test_runtime_path_configuration_defaults_are_module_anchored() -> None:
@@ -100,7 +101,9 @@ def test_configured_cors_allows_only_the_exact_frontend_origin() -> None:
             headers={
                 "Origin": "https://ownership.example",
                 "Access-Control-Request-Method": "POST",
-                "Access-Control-Request-Headers": "Content-Type",
+                "Access-Control-Request-Headers": (
+                    f"Content-Type, {REQUEST_ID_HEADER}"
+                ),
             },
         )
         denied = client.options(
@@ -116,6 +119,9 @@ def test_configured_cors_allows_only_the_exact_frontend_origin() -> None:
         "https://ownership.example"
     )
     assert "access-control-allow-credentials" not in allowed.headers
+    assert REQUEST_ID_HEADER.lower() in allowed.headers[
+        "access-control-allow-headers"
+    ].lower()
     assert "access-control-allow-origin" not in denied.headers
 
 

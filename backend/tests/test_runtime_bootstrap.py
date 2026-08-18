@@ -22,7 +22,7 @@ from app.predictive_maintenance_artifact import (
 from app.predictive_maintenance_data import (
     PREDICTIVE_MAINTENANCE_FEATURE_NAMES,
 )
-from app.runtime_bootstrap import initialize_runtime
+from app.runtime_bootstrap import RuntimeBootstrapResult, initialize_runtime
 
 
 def create_runtime_database(
@@ -129,10 +129,18 @@ def test_application_lifespan_runs_runtime_initialization(
     monkeypatch: MonkeyPatch,
 ) -> None:
     initialization_calls: list[str] = []
+
+    def record_initialization() -> RuntimeBootstrapResult:
+        initialization_calls.append("initialized")
+        return RuntimeBootstrapResult(
+            database_seeded=True,
+            predictive_artifact_created=False,
+        )
+
     monkeypatch.setattr(
         main_module,
         "initialize_runtime",
-        lambda: initialization_calls.append("initialized"),
+        record_initialization,
     )
 
     with TestClient(main_module.app) as client:

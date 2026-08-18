@@ -8,6 +8,8 @@ from urllib.parse import urlsplit
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.observability import REQUEST_ID_HEADER
+
 BACKEND_DIRECTORY = Path(__file__).resolve().parent.parent
 
 DATABASE_PATH_ENVIRONMENT_VARIABLE = "CUSTOMER_OWNERSHIP_DATABASE_PATH"
@@ -84,7 +86,8 @@ def configure_cors(
         allow_origins=list(allowed_origins),
         allow_credentials=False,
         allow_methods=["GET", "POST"],
-        allow_headers=["Accept", "Content-Type"],
+        allow_headers=["Accept", "Content-Type", REQUEST_ID_HEADER],
+        expose_headers=[REQUEST_ID_HEADER],
     )
     return allowed_origins
 
