@@ -34,7 +34,10 @@ export function VehicleOverview({ vehicle }: VehicleOverviewProps) {
             {vehicle.modelYear} model · Owned by {vehicle.ownerName}
           </p>
         </div>
-        <span className="availability-badge">Maintenance check available</span>
+        <span className="availability-badge">
+          <span aria-hidden="true" />
+          Maintenance ready
+        </span>
       </div>
 
       <div className="vehicle-visual" aria-hidden="true">

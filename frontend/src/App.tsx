@@ -115,12 +115,12 @@ function App() {
       <main className="dashboard">
         <section className="dashboard__intro" aria-labelledby="dashboard-title">
           <div>
-            <p className="eyebrow">Avery&apos;s garage</p>
-            <h1 id="dashboard-title">Your vehicle, clearly understood.</h1>
+            <p className="eyebrow">Ownership overview</p>
+            <h1 id="dashboard-title">Good evening, Avery.</h1>
           </div>
           <p className="dashboard__intro-copy">
-            Vehicle essentials and trusted ownership help, together in one clear
-            workspace.
+            Your Aster Motors Comet and every ownership capability, organized in one
+            trusted workspace.
           </p>
         </section>
 
